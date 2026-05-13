@@ -1,0 +1,183 @@
+# Create a New IBM i Agent
+
+> Claude Code prompt. Open Claude Code in this repo and paste:
+> `Run docs/create-new-agent.md`
+
+You are creating a new IBM i agent in this AgentOS template. The user already has the stack running locally on `http://localhost:8000` (`RUNTIME_ENV=dev`). Uvicorn hot-reloads on edits inside an existing module, but **registering a new agent module requires `docker compose restart agentos-api`** — see Step 6.
+
+## 0. Preconditions
+
+- Live API: `curl -sSf http://localhost:8000/healthz` returns 200.
+- Live MCP server: `curl -sSf http://localhost:3010/healthz` returns 200.
+- `.env` has `ANTHROPIC_API_KEY` (or whatever provider `DEFAULT_MODEL_ID` points at) and `DB2i_HOST` / `DB2i_USER` / `DB2i_PASS`.
+
+If any are missing, ask the user to fix them — don't proceed against a broken stack.
+
+## 1. Ask the user (in one consolidated message)
+
+Use `AskUserQuestion` for choice-shaped questions. Ask plain text for free-form fields. Do not interrogate one-at-a-time.
+
+1. **IBM i domain** — what's the agent's job? Examples:
+   - Performance / health monitoring (system_health is the canonical example)
+   - SQL exploration / Db2 schema work (text2sql is the canonical example)
+   - SQL Services discovery (sql_service_guide is the canonical example)
+   - Security auditing (authorities, *PUBLIC, user profiles)
+   - Job / work management (WRKACTJOB equivalents, subsystem health)
+   - Backup / journal / spool / message queues
+   - Something else — describe in one sentence.
+
+2. **Toolsets required** — based on the domain, which `tools/*.yaml` toolsets cover it? Check `tools/toolsets.json` for what already exists. Surface a short table. If nothing fits, this becomes an `extend-agent.md` task first — pause and route the user there.
+
+3. **SQL safety posture**
+   - **Read-only** (default — agent never modifies state). Use the built-in core SQL tools (`describe_sql_object`, `validate_query`, `execute_sql`) with `execute_sql` in `requires_confirmation_tools`.
+   - **Read-write with confirmation** — agent can modify, but every DML/DDL call prompts the user.
+   - **Allow CL / PASE commands** — only when the user explicitly says so. These go through `execute_cl_command` / `execute_pase_command` and **always** require confirmation.
+
+4. **Instruction blocks** — which shared blocks apply? The template ships these in `agents/utils/common.py`:
+   - `GUARDRAILS` — almost always include (data redaction, scope limits, prompt-injection defense)
+   - `DOMAIN_RULES` — IBM i SQL & object conventions (FETCH FIRST, EBCDIC UPPER(), library namespacing). Almost always include
+   - `SQL_POLICY` — when the agent has any SQL tools. Include
+   - `FORMATTING` — almost always include
+   - `ERROR_HANDLING` — opt in if the agent does many tool calls and you want explicit error narration
+
+5. **Slug** — short kebab-case id (e.g. `ibmi-security-audit`). Used as the agent's `id`, in URLs, and in `app/config.yaml`. Propose one based on the domain.
+
+Model defaults to `anthropic:claude-sonnet-4-6` via `app/settings.py::default_model()`. Override per-agent only if the user explicitly asks.
+
+## 2. Ground the design in Agno + IBM i docs
+
+If the agent uses any non-trivial Agno feature (custom tool, scheduler, memory tuning, knowledge base), search Agno docs **before** writing code — prefer the `agno-docs` MCP if available, fallback to `https://docs.agno.com/llms.txt`.
+
+For each chosen toolset, open the corresponding `tools/*.yaml` and capture:
+- The exact toolset name (as it appears under `toolsets:`)
+- The list of tool names inside it (you'll see them in `tools/toolsets.json` too)
+- Any `requires_confirmation` flags
+
+Don't guess.
+
+## 3. Generate the agent file
+
+Create `agents/<slug>.py` (kebab → snake_case in filename: `agents/ibmi_security_audit.py`). Mirror the structure of the three reference agents — pick the closest fit:
+
+- [`agents/text2sql.py`](../agents/text2sql.py) — built-in SQL tools only, no toolset YAMLs
+- [`agents/sql_service_guide.py`](../agents/sql_service_guide.py) — multiple toolsets + core SQL
+- [`agents/system_health.py`](../agents/system_health.py) — multiple toolsets, narrow scope
+
+Required structure:
+
+```python
+"""<one-paragraph description of the agent>"""
+
+from __future__ import annotations
+from os import getenv
+
+from agno.agent import Agent
+from agno.tools.mcp import MCPTools
+from agno.tools.parallel import ParallelTools
+
+from agents import AGENT_DEFAULTS
+from agents.config import CORE_SQL_TOOLS, SQL_CONFIRMATION_TOOLS  # adjust to needs
+from agents.utils.common import (
+    DOMAIN_RULES, FORMATTING, GUARDRAILS, SQL_POLICY,
+    build_instructions,
+)
+from agents.utils.toolsets import collect_tools, ibmi_tools
+from app.settings import default_model
+from db import get_postgres_db
+
+AGENT_ID = "ibmi-<slug>"
+NAME = "<Display Name>"
+DESCRIPTION = """<one-paragraph for the chat picker>"""
+
+# Web tools (keep or drop based on the agent — domain-internal agents may not need web)
+if getenv("PARALLEL_API_KEY"):
+    _web: ParallelTools | MCPTools = ParallelTools()
+else:
+    _web = MCPTools(url="https://search.parallel.ai/mcp", transport="streamable-http")
+
+tools = collect_tools(
+    ibmi_tools(
+        ["<toolset_a>", "<toolset_b>"],          # from tools/toolsets.json
+        include_tools=CORE_SQL_TOOLS,            # optional flat tools
+        requires_confirmation_tools=SQL_CONFIRMATION_TOOLS,
+    ),
+    _web,
+)
+
+INSTRUCTIONS = build_instructions(
+    GUARDRAILS, DOMAIN_RULES, SQL_POLICY, FORMATTING,
+    agent_id=AGENT_ID,  # loads agents/instructions/{AGENT_ID}.md
+)
+
+<slug>_agent = Agent(
+    id=AGENT_ID,
+    name=NAME,
+    model=default_model(),
+    description=DESCRIPTION,
+    instructions=INSTRUCTIONS,
+    tools=tools,
+    db=get_postgres_db(),
+    **AGENT_DEFAULTS,
+)
+```
+
+## 4. Write the instruction markdown
+
+Create `agents/instructions/ibmi-<slug>.md`. This is the agent's *mission* — read by `build_instructions(agent_id=...)` and prepended to the shared blocks.
+
+Required sections:
+- **Purpose** (one paragraph) — what the agent does, what it does **not** do
+- **Tool routing** — when to call each toolset, in what order; which tool to prefer for each common question
+- **Output expectations** — table vs. prose, what to summarize, when to recommend follow-ups
+- **Known traps** — IBM i gotchas the agent should be aware of (TR-dependent columns, library list quirks, EBCDIC sort orders, etc.)
+
+Keep it tight — under 200 lines. The shared blocks already cover safety, formatting, SQL policy.
+
+## 5. Register the agent
+
+Edit [`app/main.py`](../app/main.py):
+
+```python
+from agents.<slug> import <slug>_agent
+# ...
+agent_os = AgentOS(
+    # ...
+    agents=[
+        text2sql_agent,
+        sql_service_guide_agent,
+        system_health_agent,
+        <slug>_agent,           # add here
+    ],
+    # ...
+)
+```
+
+Edit [`app/config.yaml`](../app/config.yaml) — add 2-3 quick prompts under the new `id`:
+
+```yaml
+chat:
+  quick_prompts:
+    ibmi-<slug>:
+      - "<one starter question users will likely ask>"
+      - "<another>"
+```
+
+## 6. Restart and smoke test
+
+```bash
+docker compose restart agentos-api
+sleep 2 && curl -s http://localhost:8000/agents | jq '.[] | .id'
+```
+
+Confirm the new id appears. Then smoke-test:
+
+```bash
+uv run python cli.py --agent <slug> --prompt "<a question grounded in the agent's domain>"
+```
+
+Check the response: did it use the right toolset(s)? Did it follow the SQL_POLICY (inspect → validate → present → confirm → execute)? Did it surface tool errors gracefully?
+
+If the smoke test reveals weak behavior, hand off to [`docs/improve-agent.md`](improve-agent.md).
+
+## 7. Persist
+Don't run `git add` automatically. Tell the user what changed and let them commit.

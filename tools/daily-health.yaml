@@ -1,0 +1,99 @@
+# IBM i Daily Health Tools
+# SQL Services for the daily "morning check" — job logs, system values
+# Complements performance.yaml (system_status, active_job_info, memory_pools)
+# Based on Vern Hamberg's "Working with SQL Services" (WMCPA 2026)
+
+sources:
+  ibmi-system:
+    host: ${DB2i_HOST}
+    user: ${DB2i_USER}
+    password: ${DB2i_PASS}
+    port: 8076
+    ignore-unauthorized: true
+
+tools:
+  joblog_info:
+    source: ibmi-system
+    description: |
+      Troubleshoot job errors by retrieving job log messages. Returns
+      message ID, type, severity, text, second-level text, and the
+      originating program/module/procedure. Use job_name '*' for the
+      current job; otherwise pass a qualified name (number/user/name).
+      Filter by message_type_filter: 'ESCAPE' for errors, 'DIAGNOSTIC'
+      for warnings, 'COMPLETION' for success confirmations. Use after
+      job_info to investigate why a specific job failed or is stuck.
+    statement: |
+      SELECT MESSAGE_TIMESTAMP, MESSAGE_ID, MESSAGE_TYPE,
+             SEVERITY, MESSAGE_TEXT, MESSAGE_SECOND_LEVEL_TEXT,
+             FROM_PROGRAM, FROM_MODULE, FROM_PROCEDURE
+      FROM TABLE(QSYS2.JOBLOG_INFO(:job_name))
+      WHERE (:message_type_filter = '*ALL'
+             OR MESSAGE_TYPE = :message_type_filter)
+      ORDER BY ORDINAL_POSITION DESC
+      FETCH FIRST :row_limit ROWS ONLY
+    parameters:
+      - name: job_name
+        type: string
+        description: "Qualified job name (e.g., '123456/MYUSER/MYJOB') or '*' for the current job"
+        required: true
+      - name: message_type_filter
+        type: string
+        description: "Filter by message type: 'DIAGNOSTIC', 'ESCAPE', 'INFORMATIONAL', 'COMPLETION', 'NOTIFY', 'REQUEST', 'SENDER', or '*ALL'"
+        default: "*ALL"
+      - name: row_limit
+        type: integer
+        description: "Maximum number of messages to return (1-200)"
+        default: 50
+    security:
+      readOnly: true
+    annotations:
+      readOnlyHint: true
+      idempotentHint: true
+      domain: "operations"
+      category: "daily_health"
+
+  system_value_lookup:
+    source: ibmi-system
+    description: |
+      Find system configuration values by name pattern using LIKE
+      syntax (use % as wildcard). Returns both numeric and character
+      values — unlike system_values in the performance toolset which
+      returns only numeric values for all settings, this tool searches
+      by pattern for targeted lookup. Useful patterns: '%SEC%' for
+      security, '%LOG%' for logging, '%LMT%' for limits, '%AUD%'
+      for auditing. Use when investigating a specific config area
+      rather than reviewing all settings.
+    statement: |
+      SELECT SYSTEM_VALUE_NAME,
+             CURRENT_NUMERIC_VALUE,
+             CURRENT_CHARACTER_VALUE
+      FROM QSYS2.SYSTEM_VALUE_INFO
+      WHERE UPPER(SYSTEM_VALUE_NAME) LIKE UPPER(:name_pattern)
+      ORDER BY SYSTEM_VALUE_NAME
+      FETCH FIRST 100 ROWS ONLY
+    parameters:
+      - name: name_pattern
+        type: string
+        description: "Pattern to match system value names (e.g., '%LMT%', '%SEC%', 'QCCSID', '%AUD%')"
+        required: true
+    security:
+      readOnly: true
+    annotations:
+      readOnlyHint: true
+      idempotentHint: true
+      domain: "operations"
+      category: "daily_health"
+
+toolsets:
+  daily_health:
+    title: "Daily Health Check Tools"
+    description: "Job log and system value tools for daily IBM i health monitoring. Use with 'performance' toolset for complete coverage."
+    tools:
+      - joblog_info
+      - system_value_lookup
+
+metadata:
+  version: "1.0.0"
+  description: "Daily health check tools based on Vern Hamberg's SQL Services session"
+  domain: "operations"
+  category: "daily_health"

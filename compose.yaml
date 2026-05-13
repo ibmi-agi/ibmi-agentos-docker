@@ -1,0 +1,119 @@
+# =============================================================================
+# ibmi-agentos-template — local dev stack
+# =============================================================================
+#
+# Usage:
+#   docker compose up -d                                            # default stack
+#   docker compose -f compose.yaml -f compose.auth.yaml up -d       # with optional multi-user auth
+#   docker compose down                                             # stop everything
+#
+# Services:
+#   agentos-db       Postgres + pgvector (sessions, memory, traces, knowledge)
+#   ibmi-mcp-server  IBM i tools server — exposes tools/*.yaml over MCP
+#   agentos-api      FastAPI app running the agents
+#
+# =============================================================================
+
+services:
+
+  agentos-db:
+    image: agnohq/pgvector:18
+    container_name: agentos-db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    environment:
+      POSTGRES_USER: ${DB_USER:-ai}
+      POSTGRES_PASSWORD: ${DB_PASS:-ai}
+      POSTGRES_DB: ${DB_DATABASE:-ai}
+    networks:
+      - agentos
+
+  ibmi-mcp-server:
+    image: ghcr.io/ibm/ibmi-mcp-server:${MCP_SERVER_VERSION:-v0.5.1}
+    container_name: ibmi-mcp-server
+    restart: unless-stopped
+    ports:
+      - "3010:3010"
+    networks:
+      - agentos
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Transport
+      MCP_TRANSPORT_TYPE: http
+      MCP_SESSION_MODE: stateless
+      # Tools / YAML pickup
+      YAML_AUTO_RELOAD: "true"
+      TOOLS_YAML_PATH: /usr/src/app/tools
+      YAML_ALLOW_DUPLICATE_SOURCES: "true"
+      IBMI_ENABLE_EXECUTE_SQL: "true"
+      IBMI_ENABLE_DEFAULT_TOOLS: "true"
+      # Rate limiting & timeouts
+      MCP_RATE_LIMIT_ENABLED: "true"
+      MCP_RATE_LIMIT_MAX_REQUESTS: "5000"
+      MCP_RATE_LIMIT_WINDOW_MS: "60000"
+      MCP_RATE_LIMIT_SKIP_DEV: "true"
+      MCP_POOL_QUERY_TIMEOUT_MS: "120000"
+      # Auth — disabled by default; compose.auth.yaml flips these on
+      MCP_AUTH_MODE: none
+      IBMI_HTTP_AUTH_ENABLED: "false"
+    volumes:
+      - ./tools:/usr/src/app/tools:rw
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3010/healthz').then(function(r){process.exit(r.ok?0:1)}).catch(function(){process.exit(1)})\""]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 3s
+
+  agentos-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agentos-api
+    image: ${IMAGE_NAME:-ibmi-agentos}:${IMAGE_TAG:-latest}
+    # --reload-dir limits the watcher to dirs that actually contain runtime
+    # code. Without this, edits under docs/, scripts/, tmp/ would each
+    # restart uvicorn — disruptive when chatting with an agent.
+    command: >
+      uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      --reload-dir agents --reload-dir app --reload-dir auth --reload-dir db
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      RUNTIME_ENV: dev
+      AGNO_DEBUG: "True"
+      WAIT_FOR_DB: "True"
+      AGENTOS_URL: http://127.0.0.1:8000
+      DB_HOST: agentos-db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-ai}
+      DB_PASS: ${DB_PASS:-ai}
+      DB_DATABASE: ${DB_DATABASE:-ai}
+      MCP_URL: http://ibmi-mcp-server:3010/mcp
+      AUTH_ENABLED: ${AUTH_ENABLED:-false}
+    depends_on:
+      agentos-db:
+        condition: service_started
+      ibmi-mcp-server:
+        condition: service_healthy
+    networks:
+      - agentos
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+networks:
+  agentos:
+
+volumes:
+  pgdata:
