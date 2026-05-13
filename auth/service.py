@@ -270,8 +270,8 @@ class AuthService:
     def bootstrap_from_env(self, master_key: str) -> dict[str, Any] | None:
         """Register a master key from environment variable if not already present.
 
-        This allows zero-touch deployment: set AUTH_MASTER_KEY in Railway env
-        and the first boot creates the admin key.
+        This allows zero-touch deployment: set AUTH_MASTER_KEY in the
+        production env file and the first boot creates the admin key.
         """
         key_hash = self.hash_key(master_key)
 

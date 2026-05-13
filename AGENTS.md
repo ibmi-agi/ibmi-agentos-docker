@@ -44,7 +44,7 @@ auth/                  Optional multi-user MCP auth (off by default)
 db/                    Postgres + pgvector helpers + embedder factory (Ollama / OpenAI)
 tools/                 IBM i tool YAMLs + generated toolsets.json + schema
 docs/                  Claude Code lifecycle prompts (see README)
-scripts/               Format/validate/dev + railway/* + generate_mcp_keys + load_knowledge
+scripts/               Format/validate/dev + generate_mcp_keys + register_connection + load_knowledge
 evals/                 Eval cases + runner
 cli.py                 Interactive REPL for hitting agents from the host
 parse_mcp_tools.py     tools/*.yaml → tools/toolsets.json
@@ -107,7 +107,7 @@ For forks: also run a brand-string scrub — see [`docs/review-and-improve.md`](
 - **No `learning.learned_knowledge` store** wired by default — the shipped `ibmi_knowledge` (in `app/knowledge.py`) is curated content seeded from `knowledge/`, not extracted from chats. The `learning` module's separate `enable_learned_knowledge` flag stays off; flip it on with `get_learning(LearningConfig(enable_learned_knowledge=True), knowledge=ibmi_knowledge)` if you want extracted learnings to land in the same store
 - **No domain-specific learning schemas** — `learning/factory.py::LearningConfig` ships with generic Agno schemas; add your own (e.g. a `Db2InstanceFact` schema) by passing `entity_memory_schema=` to a per-agent `LearningConfig`
 - **No Leader/Analyst/Engineer three-role team** — the dash-style team pattern is left to user-built domain teams; the three reference agents are single-form
-- **No Slack / Discord / other interfaces in `app/main.py`** — the railway template's Slack hook was removed; add yours when needed
+- **No Slack / Discord / other interfaces in `app/main.py`** — add yours when needed (Agno ships an `agno[slack]` extra)
 - **No team-member deep-copy variants** — agents are single-form
 - **No upstream-fork brand strings or env-var prefixes** (any project name the template was derived from)
 
@@ -121,7 +121,7 @@ For forks: also run a brand-string scrub — see [`docs/review-and-improve.md`](
 | Change the embedder | Edit `EMBEDDING_PROVIDER`/`EMBEDDING_MODEL` in `.env`, run `scripts/load_knowledge.py --recreate` |
 | Change the model | Edit `DEFAULT_MODEL_ID` in `.env`, restart `agentos-api` |
 | Switch to multi-user auth | See `docs/auth-optional.md` |
-| Deploy to Railway | `bash scripts/railway/up.sh` then `scripts/railway/env-sync.sh` |
+| Deploy to production | `docker compose --env-file .env.production up -d` on a host with the IBM i reachable; same `compose.yaml` as dev |
 | Bump MCP server version | Edit `MCP_SERVER_VERSION` in `.env`, `docker compose pull ibmi-mcp-server`, restart |
 
 ## Lifecycle docs (Claude Code prompts)

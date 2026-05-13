@@ -109,15 +109,14 @@ If the diff is non-empty, `pyproject.toml` was changed without regenerating. Com
 
 The template pins `MCP_SERVER_VERSION` in `example.env` and uses it via `${MCP_SERVER_VERSION:-…}` in `compose.yaml`. Confirm both reference the same default. If a user has bumped one but not the other, point them at [`docs/ibmi-mcp-server.md`](ibmi-mcp-server.md) for the upgrade flow.
 
-## 8. Railway scripts still parse
+## 8. Compose stack still boots clean
 
 ```bash
-bash -n scripts/railway/up.sh
-bash -n scripts/railway/env-sync.sh
-bash -n scripts/railway/redeploy.sh
+docker compose config -q              # validate compose.yaml without starting anything
+docker compose config -q -f compose.yaml -f compose.auth.yaml  # with auth overlay
 ```
 
-Any syntax errors here mean the Railway path is broken.
+Either command exits non-zero on syntax / reference errors. Compose is the deploy story — keep it green.
 
 ## 9. Auth module integrity (if installed)
 
@@ -159,6 +158,6 @@ All three should succeed and the agent list should match what `app/main.py` regi
 Tell the user:
 - What was stale and is now fresh (toolsets.json, requirements.txt)
 - What was missing and is now documented (example.env additions)
-- What you couldn't auto-fix and they need to decide on (structural drift, broken Railway scripts, etc.)
+- What you couldn't auto-fix and they need to decide on (structural drift, missing prod deploy hooks, etc.)
 
 Let the user commit.

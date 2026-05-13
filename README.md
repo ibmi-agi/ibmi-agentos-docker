@@ -15,7 +15,6 @@ The template is designed so a coding agent can read, edit, and improve the platf
 | Learning module (Agno LearningMachine) | `learning/` |
 | Web research via Parallel.ai ContextProvider | `agents/utils/web_context.py` |
 | Optional multi-user auth (RSA + AES) | `auth/` + `compose.auth.yaml` |
-| Railway deploy path | `railway.json` + `scripts/railway/*.sh` |
 | Claude Code prompts for the agent lifecycle | `docs/{create-new,improve,extend,eval-and-improve,review-and-improve}-agent.md` |
 
 ## Quickstart
@@ -89,7 +88,7 @@ Open the repo in [Claude Code](https://claude.com/claude-code) and paste any of 
 | `Run docs/extend-agent.md` | Adds a new toolset YAML to an existing agent |
 | `Run docs/improve-agent.md` | Probe-loop hardening — derives probes from the agent's contract, runs them, edits until they pass |
 | `Run docs/eval-and-improve.md` | Runs the IBM i eval suite (`evals/cases.py`), diagnoses failures, fixes |
-| `Run docs/review-and-improve.md` | Sweep for drift (stale `toolsets.json`, missing env vars, broken Railway scripts) |
+| `Run docs/review-and-improve.md` | Sweep for drift (stale `toolsets.json`, missing env vars, deployment hygiene) |
 
 Plus three reference docs:
 
@@ -124,17 +123,29 @@ If your fork derives from another project, run a brand-string scrub too — see 
 
 The CI workflow at `.github/workflows/validate.yml` runs the same lint + type-check on every push.
 
-## Production: Railway
+## Production deployment
+
+The template targets **Docker** or **Podman** — `compose.yaml` is the source of truth, no platform-specific glue. Bring it up the same way in production as in dev, with a separate env file for secrets:
 
 ```bash
-bash scripts/railway/up.sh           # provision Railway project + Postgres + app service
-bash scripts/railway/env-sync.sh     # push env vars from .env.production
-bash scripts/railway/redeploy.sh     # trigger redeploy on code changes
+docker compose --env-file .env.production up -d
+# or
+podman compose --env-file .env.production up -d
 ```
 
-The `Dockerfile` is multi-stage uv. `railway.json` defines the deploy spec (2 replicas, 4 GiB / 2 vCPU each).
+For an image-based deploy (push the API container to a registry, run it next to your IBM i):
 
-Note: the IBM i MCP server is **not** deployed by these scripts — running it next to your IBM i (or in the same private network) is on you. Point `MCP_URL` at the right place via Railway env vars.
+```bash
+docker build -t your-registry/ibmi-agentos:latest .
+docker push  your-registry/ibmi-agentos:latest
+```
+
+Then run on the production host with a `compose.yaml` that pulls the published image instead of `build:`. The IBM i MCP server image (`ghcr.io/ibm/ibmi-mcp-server`) is already published — no build step needed.
+
+**Two things you own at deploy time:**
+
+1. **Network** to the IBM i. The MCP server needs Db2-for-i port 8076 reachable. Co-locate it on a host inside the IBM i's network, or open a VPN tunnel.
+2. **Where Postgres lives.** `agentos-db` in the template is a single-host container with a local volume — fine for a small deployment, but for HA replace it with a managed Postgres + pgvector (e.g. AWS RDS with the extension enabled, Aiven, etc.) and point `DB_HOST` at it.
 
 ## Multi-user auth (opt-in)
 
