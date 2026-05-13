@@ -24,7 +24,7 @@ from agno.tools import Toolkit
 from agno.tools.function import Function
 from agno.tools.mcp import MCPTools
 
-from agents.config import MCP_URL
+from agents.config import CLI_MODE, MCP_URL
 from agents.utils.tools import get_toolset, get_toolsets
 
 # Union matching agno's Agent/Team ``tools`` parameter.
@@ -34,6 +34,17 @@ ToolType: TypeAlias = Toolkit | Callable[..., Any] | Function | dict[str, Any]
 def collect_tools(*tools: ToolType | None) -> list[ToolType]:
     """Build a tools list, filtering out ``None`` entries from optional tools."""
     return [t for t in tools if t is not None]
+
+
+def ibmi_cli_tools(tools_dir: str | None = None, **kwargs: Any) -> Toolkit:
+    """IBM i CLI toolkit — direct ``ibmi`` binary interaction, no MCP server.
+
+    Active only when ``IBMI_CLI_MODE=true``. The binary is baked into the
+    container image via the Dockerfile's ``node-builder`` stage.
+    """
+    from agents.tools.ibmi_cli import IBMiCLITools
+
+    return IBMiCLITools(tools_dir=tools_dir, **kwargs)
 
 
 def ibmi_tools(
@@ -54,7 +65,21 @@ def ibmi_tools(
 
     Resolves toolset names from ``tools/toolsets.json`` (regenerate with
     ``uv run python parse_mcp_tools.py`` after editing any ``tools/*.yaml``).
+
+    When ``IBMI_CLI_MODE=true``, returns an :class:`IBMiCLITools` instance
+    instead — the agent talks to the local ``ibmi`` binary with no MCP
+    server in the path. ``toolset`` names pass through as the toolkit's
+    curated scope. The MCP-only kwargs (``url``, ``transport``,
+    ``timeout_seconds``, ``include_tools``, ``requires_confirmation_tools``,
+    ``header_provider``) are ignored in CLI mode — ``IBMiCLITools`` exposes
+    its own native tools and manages its own confirmation gating.
     """
+    if CLI_MODE:
+        names: list[str] = (
+            [toolset] if isinstance(toolset, str) else list(toolset) if toolset else []
+        )
+        return ibmi_cli_tools(toolsets=names or None)
+
     tool_names: list[str] = []
     if toolset is not None:
         tool_names.extend(

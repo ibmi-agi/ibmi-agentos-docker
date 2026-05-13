@@ -10,6 +10,7 @@ Model resolution lives in ``app/settings.py::default_model()``.
 from __future__ import annotations
 
 from os import getenv
+from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # IBM i MCP server URL
@@ -43,3 +44,24 @@ SQL_TOOLS = [
 
 # Tools that should require user confirmation before they fire.
 SQL_CONFIRMATION_TOOLS = ["execute_sql"]
+
+# ---------------------------------------------------------------------------
+# IBM i CLI (offline / no-MCP mode)
+# ---------------------------------------------------------------------------
+# When ``IBMI_CLI_MODE=true``, agents talk to the local ``ibmi`` binary via
+# IBMiCLITools instead of connecting to ibmi-mcp-server. The binary is baked
+# into the container image (see Dockerfile multi-stage build). Read at import
+# time — flipping requires a container restart.
+CLI_MODE = getenv("IBMI_CLI_MODE", "false").lower() in ("true", "1", "yes")
+
+# Path to the bundled ``ibmi`` CLI binary. Defaults to the name on PATH.
+IBMI_CLI = getenv("IBMI_CLI", "ibmi")
+
+# Subprocess timeout for CLI dispatch (seconds).
+IBMI_CLI_TIMEOUT = int(getenv("IBMI_CLI_TIMEOUT", "120"))
+
+# Tool YAML discovery roots for the CLI toolkit's ``list_tools`` / ``run_tool``
+# methods. PROJECT_TOOLS_DIR is the in-repo ``tools/`` directory; USER_TOOLS_DIR
+# is an optional host-mounted directory for user-supplied YAMLs.
+PROJECT_TOOLS_DIR = Path(__file__).resolve().parents[1] / "tools"
+USER_TOOLS_DIR = Path(getenv("IBMI_USER_TOOLS_DIR", "/data/user_tools"))
