@@ -11,7 +11,7 @@ The template is designed so a coding agent can read, edit, and improve the platf
 | 3 reference agents | `agents/{text2sql,sql_service_guide,system_health}.py` |
 | IBM i tools (MCP server) | `tools/*.yaml` → `tools/toolsets.json` via `parse_mcp_tools.py` |
 | Postgres + pgvector for sessions, memory, traces, knowledge | `db/` + `compose.yaml` |
-| Shared knowledge base (Ollama embeddings by default) | `knowledge/` + `app/knowledge.py` + `scripts/load_knowledge.py` |
+| Shared knowledge base (OpenAI embeddings) | `knowledge/` + `app/knowledge.py` + `scripts/load_knowledge.py` |
 | Learning module (Agno LearningMachine) | `learning/` |
 | Web research via Parallel.ai ContextProvider | `agents/utils/web_context.py` |
 | Optional multi-user auth (RSA + AES) | `auth/` + `compose.auth.yaml` |
@@ -19,15 +19,17 @@ The template is designed so a coding agent can read, edit, and improve the platf
 
 ## Quickstart
 
+**Prerequisites:** Docker (or Podman), an IBM i system reachable from your host, and API keys for your model provider (`ANTHROPIC_API_KEY` by default) and the embedder (`OPENAI_API_KEY` — only needed if you seed the knowledge base).
+
 ```bash
 git clone <this-repo> ibmi-agentos
 cd ibmi-agentos
 cp example.env .env
-# Edit .env — set DB2i_HOST/USER/PASS and ANTHROPIC_API_KEY (or another provider)
+# Edit .env — set DB2i_HOST / DB2i_USER / DB2i_PASS and ANTHROPIC_API_KEY
 docker compose up -d
 ```
 
-Four services come up: `agentos-db` (Postgres + pgvector), `ollama` (local embedder for the knowledge base — pulls `qwen3-embedding:0.6b` on first boot, ~700 MB download), `ibmi-mcp-server` (IBM i tools), `agentos-api` (FastAPI). Health probes:
+Three services come up: `agentos-db` (Postgres + pgvector), `ibmi-mcp-server` (IBM i tools), `agentos-api` (FastAPI + the three reference agents). Verify:
 
 ```bash
 curl -sSf http://localhost:8000/healthz
@@ -36,11 +38,13 @@ curl -s http://localhost:8000/agents | jq '.[] | .id'
 # → ["ibmi-text2sql", "ibmi-sql-service-guide", "ibmi-system-health"]
 ```
 
-One-time setup: seed the knowledge base from `knowledge/`:
+**Optional** — seed the shared knowledge base (table metadata, validated example queries, business glossary) so agents can search it on every turn. Requires `OPENAI_API_KEY` in `.env`:
 
 ```bash
 uv run python scripts/load_knowledge.py
 ```
+
+Agents work without this step; they just lose the knowledge-search context. See [`docs/knowledge-base.md`](docs/knowledge-base.md).
 
 Talk to an agent from the terminal:
 
@@ -70,13 +74,118 @@ cli / curl ──▶ agentos-api ──▶ ibmi-mcp-server ──▶ IBM i (Db2 
               Postgres (agentos-db)
               ├── sessions / memory / traces
               ├── learning  (user_profile, entity_memory, session_context, ...)
-              └── ibmi_knowledge (PgVector — embedded by ollama)
+              └── ibmi_knowledge (PgVector — OpenAI embeddings)
 ```
 
 - **Agents** declare themselves in `agents/<name>.py` and register in `app/main.py`'s literal `agents=[...]` list (no registry / autoloader — explicit imports).
 - **Tools** live in `tools/*.yaml`, validated and compiled into `tools/toolsets.json` by `parse_mcp_tools.py`. Agents pick toolsets by name via `ibmi_tools(["performance"])`.
 - **Knowledge** lives in `knowledge/{tables,queries,business}/`, ingested into PgVector via `scripts/load_knowledge.py`. Every agent searches it on every turn (`search_knowledge=True`).
 - **The model provider** is one env var: `DEFAULT_MODEL_ID=anthropic:claude-sonnet-4-6` (default). Swap to OpenAI / Gemini / Groq / Ollama by changing the prefix — Agno's `get_model()` resolves it.
+
+## Designing an IBM i Agent
+
+A new agent is a decision in five dimensions. The lifecycle docs (next section) probe each of these — this section is the mental model.
+
+**1. Domain — what's the job?**
+The agent should answer one kind of question well, not many kinds poorly. The three reference agents draw the lines:
+
+- `text2sql` — open Db2 schema exploration ("what columns does QSYS2.SYSTABLES have?")
+- `sql_service_guide` — discovery across IBM i SQL Services ("what's the right service for ASP usage?")
+- `system_health` — narrow operational diagnostics ("why is CPU pegged?")
+
+Pick a domain where the agent's success criteria are concrete. "Anything IBM i" is not a domain.
+
+**2. Toolsets — reuse or build?**
+Tools live in `tools/*.yaml` and compile to `tools/toolsets.json`. Before designing new tools, check `tools/toolsets.json` — most domains already have coverage (`performance`, `daily_health`, `sysadmin_*`). The decision tree:
+
+| Capability needed | Plan |
+|---|---|
+| Already in a toolset | Reuse it. List the toolset name in `ibmi_tools([...])` |
+| Adjacent but missing tools | Extend the toolset — add tools to its YAML file |
+| No match | Build a new toolset (one `tools/<name>.yaml`, one toolset per file) |
+
+YAML schema, conventions, and worked examples: [`docs/tool-design-reference.md`](docs/tool-design-reference.md).
+
+**3. Safety posture — read-only by default**
+The default and safest stance is read-only: agent uses `describe_sql_object` / `validate_query` / `execute_sql` with `execute_sql` in `requires_confirmation_tools`. Three escalation tiers:
+
+- **Read-only** — no writes, no CL/PASE. Most domains land here.
+- **Read-write with confirmation** — agent can run DML/DDL, but every modifying call prompts the user.
+- **CL / PASE allowed** — `execute_cl_command` and `execute_pase_command` available; always require confirmation. Only when explicitly needed.
+
+**4. Instruction blocks — what shared rules apply?**
+The template ships reusable instruction blocks in `agents/utils/common.py`:
+
+- `GUARDRAILS` — data redaction, scope limits, prompt-injection defense. Include almost always.
+- `DOMAIN_RULES` — IBM i SQL conventions (`FETCH FIRST`, EBCDIC `UPPER()`, library namespacing). Include if the agent touches SQL.
+- `SQL_POLICY` — inspect → validate → present → confirm → execute. Include if the agent has any SQL tools.
+- `FORMATTING` — table vs. prose conventions. Include almost always.
+- `ERROR_HANDLING` — opt in if the agent does many tool calls and you want explicit error narration.
+
+These compose with the agent's per-mission markdown at `agents/instructions/<id>.md` (Purpose, Tool routing, Output expectations, Known traps).
+
+**5. Knowledge — does it need grounding context?**
+The shared knowledge base under `knowledge/{tables,queries,business}/` is loaded into PgVector and searched on every turn (`search_knowledge=True` in `AGENT_DEFAULTS`). Add files there if the agent benefits from:
+
+- Curated example SQL the agent should pattern-match against (`knowledge/queries/*.sql`)
+- Table metadata it should consult before SELECTing (`knowledge/tables/*.json`)
+- Business rules, glossary, or IBM i gotchas (`knowledge/business/*.md`)
+
+Rerun `scripts/load_knowledge.py` after adding files.
+
+### What an agent looks like in code
+
+The five decisions above map directly to the agent module. A minimal example (`agents/storage_audit.py`):
+
+```python
+from agno.agent import Agent
+
+from agents import AGENT_DEFAULTS
+from agents.config import CORE_SQL_TOOLS, SQL_CONFIRMATION_TOOLS
+from agents.utils.common import (
+    DOMAIN_RULES, FORMATTING, GUARDRAILS, SQL_POLICY, build_instructions,
+)
+from agents.utils.toolsets import collect_tools, ibmi_tools
+from app.knowledge import ibmi_knowledge
+from app.settings import default_model
+from db import get_postgres_db
+
+AGENT_ID = "ibmi-storage-audit"                                  # (1) domain → slug
+NAME = "IBM i Storage Audit Agent"
+DESCRIPTION = "Audits ASP usage, library sizes, and storage pools on IBM i."
+
+tools = collect_tools(                                            # (2) toolsets — reused
+    ibmi_tools(
+        ["performance"],                                          #     a named toolset
+        include_tools=CORE_SQL_TOOLS,                             #     describe / validate / execute
+        requires_confirmation_tools=SQL_CONFIRMATION_TOOLS,       # (3) safety — confirm on execute_sql
+    ),
+)
+
+INSTRUCTIONS = build_instructions(                                # (4) shared instruction blocks
+    GUARDRAILS, DOMAIN_RULES, SQL_POLICY, FORMATTING,
+    agent_id=AGENT_ID,                                            #     + agents/instructions/{AGENT_ID}.md
+)
+
+storage_audit_agent = Agent(
+    id=AGENT_ID,
+    name=NAME,
+    model=default_model(),
+    description=DESCRIPTION,
+    instructions=INSTRUCTIONS,
+    tools=tools,
+    db=get_postgres_db(),
+    knowledge=ibmi_knowledge,                                     # (5) shared knowledge base
+    search_knowledge=True,
+    **AGENT_DEFAULTS,
+)
+```
+
+The agent then registers in `app/main.py`'s literal `agents=[...]` list and gets quick prompts in `app/config.yaml`. The three reference agents in `agents/` follow the same shape with progressively more tools.
+
+### From design to scaffold
+
+Once you've answered the five design questions, run [`docs/create-new-agent.md`](docs/create-new-agent.md) in Claude Code. It walks the same five dimensions Socratically, then scaffolds the agent module, writes the instruction markdown, builds any missing toolsets inline (via [`docs/extend-agent.md`](docs/extend-agent.md)), registers the agent in `app/main.py`, and smoke-tests it.
 
 ## Working with Claude Code (the intended workflow)
 
