@@ -10,7 +10,10 @@ The template is designed so a coding agent can read, edit, and improve the platf
 |---|---|
 | 3 reference agents | `agents/{text2sql,sql_service_guide,system_health}.py` |
 | IBM i tools (MCP server) | `tools/*.yaml` → `tools/toolsets.json` via `parse_mcp_tools.py` |
-| Postgres + pgvector for sessions, memory, traces | `db/` + `compose.yaml` |
+| Postgres + pgvector for sessions, memory, traces, knowledge | `db/` + `compose.yaml` |
+| Shared knowledge base (Ollama embeddings by default) | `knowledge/` + `app/knowledge.py` + `scripts/load_knowledge.py` |
+| Learning module (Agno LearningMachine) | `learning/` |
+| Web research via Parallel.ai ContextProvider | `agents/utils/web_context.py` |
 | Optional multi-user auth (RSA + AES) | `auth/` + `compose.auth.yaml` |
 | Railway deploy path | `railway.json` + `scripts/railway/*.sh` |
 | Claude Code prompts for the agent lifecycle | `docs/{create-new,improve,extend,eval-and-improve,review-and-improve}-agent.md` |
@@ -25,13 +28,19 @@ cp example.env .env
 docker compose up -d
 ```
 
-Three services come up: `agentos-db` (Postgres + pgvector), `ibmi-mcp-server` (IBM i tools), `agentos-api` (FastAPI). Health probes:
+Four services come up: `agentos-db` (Postgres + pgvector), `ollama` (local embedder for the knowledge base — pulls `qwen3-embedding:0.6b` on first boot, ~700 MB download), `ibmi-mcp-server` (IBM i tools), `agentos-api` (FastAPI). Health probes:
 
 ```bash
 curl -sSf http://localhost:8000/healthz
 curl -sSf http://localhost:3010/healthz
 curl -s http://localhost:8000/agents | jq '.[] | .id'
 # → ["ibmi-text2sql", "ibmi-sql-service-guide", "ibmi-system-health"]
+```
+
+One-time setup: seed the knowledge base from `knowledge/`:
+
+```bash
+uv run python scripts/load_knowledge.py
 ```
 
 Talk to an agent from the terminal:
@@ -55,14 +64,19 @@ curl -s -X POST -H "Content-Type: application/json" \
 ```
 cli / curl ──▶ agentos-api ──▶ ibmi-mcp-server ──▶ IBM i (Db2 for i)
                   │                  │
-                  ▼                  ▼
-              Postgres            tools/*.yaml
-              (sessions,           (read by MCP
-              memory, traces)      server on boot)
+                  │                  ▼
+                  │              tools/*.yaml
+                  │              (read by MCP server on boot)
+                  ▼
+              Postgres (agentos-db)
+              ├── sessions / memory / traces
+              ├── learning  (user_profile, entity_memory, session_context, ...)
+              └── ibmi_knowledge (PgVector — embedded by ollama)
 ```
 
 - **Agents** declare themselves in `agents/<name>.py` and register in `app/main.py`'s literal `agents=[...]` list (no registry / autoloader — explicit imports).
 - **Tools** live in `tools/*.yaml`, validated and compiled into `tools/toolsets.json` by `parse_mcp_tools.py`. Agents pick toolsets by name via `ibmi_tools(["performance"])`.
+- **Knowledge** lives in `knowledge/{tables,queries,business}/`, ingested into PgVector via `scripts/load_knowledge.py`. Every agent searches it on every turn (`search_knowledge=True`).
 - **The model provider** is one env var: `DEFAULT_MODEL_ID=anthropic:claude-sonnet-4-6` (default). Swap to OpenAI / Gemini / Groq / Ollama by changing the prefix — Agno's `get_model()` resolves it.
 
 ## Working with Claude Code (the intended workflow)
@@ -77,9 +91,10 @@ Open the repo in [Claude Code](https://claude.com/claude-code) and paste any of 
 | `Run docs/eval-and-improve.md` | Runs the IBM i eval suite (`evals/cases.py`), diagnoses failures, fixes |
 | `Run docs/review-and-improve.md` | Sweep for drift (stale `toolsets.json`, missing env vars, broken Railway scripts) |
 
-Plus two reference docs:
+Plus three reference docs:
 
 - [`docs/ibmi-mcp-server.md`](docs/ibmi-mcp-server.md) — how the MCP server, tool YAMLs, and `parse_mcp_tools.py` fit together
+- [`docs/knowledge-base.md`](docs/knowledge-base.md) — how `knowledge/`, the embedder, and `scripts/load_knowledge.py` work
 - [`docs/auth-optional.md`](docs/auth-optional.md) — how to opt in to multi-user IBM i credentials
 
 ## Editing the agents

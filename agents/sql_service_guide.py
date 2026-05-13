@@ -30,6 +30,7 @@ from agents.utils.common import (
 )
 from agents.utils.toolsets import collect_tools, ibmi_tools
 from agents.utils.web_context import web_tools
+from app.knowledge import ibmi_knowledge
 from app.settings import default_model
 from db import get_postgres_db
 from learning import get_learning
@@ -89,6 +90,8 @@ sql_service_guide_agent = Agent(
     instructions=INSTRUCTIONS,
     tools=tools,
     db=get_postgres_db(),
+    knowledge=ibmi_knowledge,
+    search_knowledge=True,
     learning=get_learning(),
     **AGENT_DEFAULTS,
 )

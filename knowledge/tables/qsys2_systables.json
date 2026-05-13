@@ -1,0 +1,41 @@
+{
+  "table_name": "QSYS2.SYSTABLES",
+  "table_description": "IBM i system catalog view listing every table, view, and alias on the system. One row per relational object. Use it to discover what exists in a schema or to filter by object type. Large on systems with many libraries — always qualify by SCHEMA_NAME or TABLE_TYPE.",
+  "table_columns": [
+    {
+      "name": "TABLE_SCHEMA",
+      "type": "VARCHAR(128)",
+      "description": "The library that owns the object (e.g. 'QGPL', 'QSYS2'). Equivalent to *LIB on the native side."
+    },
+    {
+      "name": "TABLE_NAME",
+      "type": "VARCHAR(128)",
+      "description": "The SQL name of the object. Distinct from SYSTEM_TABLE_NAME (max 10 chars, native)."
+    },
+    {
+      "name": "TABLE_TYPE",
+      "type": "VARCHAR(1)",
+      "description": "Object type code. 'T' = table, 'P' = physical file, 'V' = view, 'A' = alias, 'M' = materialized query table. Filter to 'T' + 'V' for typical exploration."
+    },
+    {
+      "name": "ROW_LENGTH",
+      "type": "INTEGER",
+      "description": "Maximum row length in bytes. Helpful for sizing exports."
+    },
+    {
+      "name": "NUMBER_ROWS",
+      "type": "BIGINT",
+      "description": "Approximate row count as of last statistics gathering. NULL or 0 for views and brand-new tables. Don't trust as exact — for accuracy use SELECT COUNT(*)."
+    },
+    {
+      "name": "LAST_USED_TIMESTAMP",
+      "type": "TIMESTAMP",
+      "description": "When the object was last referenced. Useful for finding cold tables."
+    }
+  ],
+  "data_quality_notes": [
+    "TABLE_SCHEMA / TABLE_NAME use the SQL (long) name. SYSTEM_TABLE_NAME holds the 10-char native name when they differ.",
+    "NUMBER_ROWS is statistics-based — newly inserted rows may not show until the table is reorganized or stats are refreshed.",
+    "Querying without a SCHEMA filter can scan a very large catalog on production-sized systems — always add WHERE TABLE_SCHEMA = '...'."
+  ]
+}

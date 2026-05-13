@@ -9,6 +9,7 @@
 #
 # Services:
 #   agentos-db       Postgres + pgvector (sessions, memory, traces, knowledge)
+#   ollama           Local embedding model server (qwen3-embedding:0.6b)
 #   ibmi-mcp-server  IBM i tools server — exposes tools/*.yaml over MCP
 #   agentos-api      FastAPI app running the agents
 #
@@ -30,6 +31,35 @@ services:
       POSTGRES_DB: ${DB_DATABASE:-ai}
     networks:
       - agentos
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - agentos
+    # Start the server, pull the embedding model on first boot, then keep
+    # serving. ``ollama pull`` is idempotent — subsequent restarts skip
+    # the download once the model is in the volume.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        ollama serve &
+        pid=$$!
+        # Wait for the daemon socket
+        until ollama list >/dev/null 2>&1; do sleep 1; done
+        ollama pull ${EMBEDDING_MODEL:-qwen3-embedding:0.6b}
+        wait $$pid
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list | grep -q ${EMBEDDING_MODEL:-qwen3-embedding:0.6b} || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
 
   ibmi-mcp-server:
     image: ghcr.io/ibm/ibmi-mcp-server:${MCP_SERVER_VERSION:-v0.5.1}
@@ -102,10 +132,15 @@ services:
       DB_DATABASE: ${DB_DATABASE:-ai}
       MCP_URL: http://ibmi-mcp-server:3010/mcp
       AUTH_ENABLED: ${AUTH_ENABLED:-false}
+      OLLAMA_HOST: http://ollama:11434
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-ollama}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-qwen3-embedding:0.6b}
     depends_on:
       agentos-db:
         condition: service_started
       ibmi-mcp-server:
+        condition: service_healthy
+      ollama:
         condition: service_healthy
     networks:
       - agentos
@@ -117,3 +152,4 @@ networks:
 
 volumes:
   pgdata:
+  ollama-data:

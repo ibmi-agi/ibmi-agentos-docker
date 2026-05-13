@@ -1,0 +1,50 @@
+{
+  "table_name": "QSYS2.SYSTEM_STATUS_INFO",
+  "table_description": "UDTF returning a single-row snapshot of system-wide vital signs. CPU utilization, main storage pool sizes, ASP usage, address-ID consumption, and job/thread counts at the moment of the call. The first stop for 'how is the system doing right now?'.",
+  "table_columns": [
+    {
+      "name": "ELAPSED_CPU_USED",
+      "type": "DECIMAL(7,3)",
+      "description": "Percent CPU consumed during the elapsed interval. Requires a prior RESET_STATISTICS call — otherwise reflects since IPL. For a useful instantaneous reading, call RESET_STATISTICS, sleep a few seconds, then read."
+    },
+    {
+      "name": "CONFIGURED_CPUS",
+      "type": "INTEGER",
+      "description": "Number of CPU cores configured on the partition. Pair with CPU percentage to convert to cores-equivalent."
+    },
+    {
+      "name": "CURRENT_CPU_CAPACITY",
+      "type": "DECIMAL(7,3)",
+      "description": "Active CPU capacity in physical cores. May be less than CONFIGURED_CPUS when PowerVM dispatches fewer."
+    },
+    {
+      "name": "MAIN_STORAGE_SIZE",
+      "type": "DECIMAL(15,2)",
+      "description": "Main storage size in megabytes."
+    },
+    {
+      "name": "SYSTEM_ASP_USED",
+      "type": "DECIMAL(5,2)",
+      "description": "System ASP (ASP 1) percent used. Above 90 is dangerous; the system pages aggressively. Above 95 risks IPL."
+    },
+    {
+      "name": "TOTAL_AUXILIARY_STORAGE",
+      "type": "DECIMAL(15,2)",
+      "description": "Total auxiliary storage across all ASPs in megabytes."
+    },
+    {
+      "name": "ACTIVE_JOBS_IN_SYSTEM",
+      "type": "INTEGER",
+      "description": "Count of active jobs at the snapshot moment. Sanity-check against ACTIVE_JOB_INFO row count."
+    },
+    {
+      "name": "MAXIMUM_JOBS_IN_SYSTEM",
+      "type": "INTEGER",
+      "description": "Configured maximum from system value QMAXJOB. Hitting this prevents new jobs from starting."
+    }
+  ],
+  "data_quality_notes": [
+    "ELAPSED_CPU_USED is meaningful only after RESET_STATISTICS is called for the session — otherwise it reports IPL-to-now.",
+    "The UDTF accepts an optional argument to control whether to reset stats: TABLE(QSYS2.SYSTEM_STATUS_INFO(RESET_STATISTICS => 'YES'))."
+  ]
+}

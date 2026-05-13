@@ -31,19 +31,24 @@ agents/                IBM i agent modules + shared utilities
 app/
   main.py              AgentOS instantiation, literal agent list, web backend lifespan
   settings.py          default_model() — reads DEFAULT_MODEL_ID env
+  knowledge.py         Lazy singleton ``ibmi_knowledge`` (PgVector) shared by agents
   config.yaml          chat quick-prompts per agent
+knowledge/             Source content for the shared knowledge base
+  tables/*.json        Table metadata
+  queries/*.sql        Validated example queries with header tags
+  business/*.md        Conventions, gotchas, metric definitions
 learning/              LearningMachine factory (generic, knowledge OFF by default)
   __init__.py          Re-exports get_learning, LearningConfig, DEFAULT_CONFIG
   factory.py           Slim factory — pass learning=get_learning() to each agent
 auth/                  Optional multi-user MCP auth (off by default)
-db/                    Postgres + pgvector helpers
+db/                    Postgres + pgvector helpers + embedder factory (Ollama / OpenAI)
 tools/                 IBM i tool YAMLs + generated toolsets.json + schema
 docs/                  Claude Code lifecycle prompts (see README)
-scripts/               Format/validate/dev + railway/* + generate_mcp_keys + register_connection
+scripts/               Format/validate/dev + railway/* + generate_mcp_keys + load_knowledge
 evals/                 Eval cases + runner
 cli.py                 Interactive REPL for hitting agents from the host
 parse_mcp_tools.py     tools/*.yaml → tools/toolsets.json
-compose.yaml           Local stack (db + mcp + api)
+compose.yaml           Local stack (db + ollama + mcp + api)
 compose.auth.yaml      Overlay that flips on AUTH_ENABLED + MCP_AUTH_MODE=ibmi
 ```
 
@@ -99,8 +104,9 @@ For forks: also run a brand-string scrub — see [`docs/review-and-improve.md`](
 ### Don't add (deliberate cuts)
 
 - **No `app/registry.py` / `app/factory.py`** — explicit imports in `app/main.py` only
-- **No shipped knowledge base** — `learning/factory.py` defaults to `enable_learned_knowledge=False`; `db.create_knowledge()` is available and can be passed to `get_learning(knowledge=...)` when you wire one up
+- **No `learning.learned_knowledge` store** wired by default — the shipped `ibmi_knowledge` (in `app/knowledge.py`) is curated content seeded from `knowledge/`, not extracted from chats. The `learning` module's separate `enable_learned_knowledge` flag stays off; flip it on with `get_learning(LearningConfig(enable_learned_knowledge=True), knowledge=ibmi_knowledge)` if you want extracted learnings to land in the same store
 - **No domain-specific learning schemas** — `learning/factory.py::LearningConfig` ships with generic Agno schemas; add your own (e.g. a `Db2InstanceFact` schema) by passing `entity_memory_schema=` to a per-agent `LearningConfig`
+- **No Leader/Analyst/Engineer three-role team** — the dash-style team pattern is left to user-built domain teams; the three reference agents are single-form
 - **No Slack / Discord / other interfaces in `app/main.py`** — the railway template's Slack hook was removed; add yours when needed
 - **No team-member deep-copy variants** — agents are single-form
 - **No upstream-fork brand strings or env-var prefixes** (any project name the template was derived from)
@@ -111,6 +117,8 @@ For forks: also run a brand-string scrub — see [`docs/review-and-improve.md`](
 |---|---|
 | Add a new agent | Run `docs/create-new-agent.md` in Claude Code |
 | Add a new IBM i tool | Edit `tools/*.yaml` → run `parse_mcp_tools.py` → restart MCP server |
+| Add knowledge for the agents to search | Drop a file under `knowledge/{tables,queries,business}/` → run `scripts/load_knowledge.py` |
+| Change the embedder | Edit `EMBEDDING_PROVIDER`/`EMBEDDING_MODEL` in `.env`, run `scripts/load_knowledge.py --recreate` |
 | Change the model | Edit `DEFAULT_MODEL_ID` in `.env`, restart `agentos-api` |
 | Switch to multi-user auth | See `docs/auth-optional.md` |
 | Deploy to Railway | `bash scripts/railway/up.sh` then `scripts/railway/env-sync.sh` |
@@ -126,9 +134,10 @@ For forks: also run a brand-string scrub — see [`docs/review-and-improve.md`](
 | `docs/eval-and-improve.md` | Run `python -m evals`, diagnose failures, fix in scope |
 | `docs/review-and-improve.md` | Sweep for drift (stale `toolsets.json`, missing env vars, brand-scrub) |
 
-Plus two reference docs:
+Plus three reference docs:
 
 | File | Purpose |
 |---|---|
 | `docs/ibmi-mcp-server.md` | How `tools/*.yaml`, `parse_mcp_tools.py`, and the MCP server fit together |
+| `docs/knowledge-base.md` | How `knowledge/`, the embedder, and `scripts/load_knowledge.py` work |
 | `docs/auth-optional.md` | How to enable multi-user IBM i credentials |

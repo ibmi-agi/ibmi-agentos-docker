@@ -12,6 +12,7 @@ dependencies = [
   "anthropic",
   "fastapi[standard]",
   "mcp",
+  "ollama",
   "openai",
   "parallel-web",
   "pgvector",
