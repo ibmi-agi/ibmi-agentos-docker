@@ -10,7 +10,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from agents.utils.web_context import web_instructions
+
 INSTRUCTIONS_DIR = Path(__file__).resolve().parent.parent / "instructions"
+
+# Provider-supplied instruction snippet describing the ``query_web(question)``
+# tool. Built lazily — the singleton WebContextProvider is constructed the
+# first time this attribute is read; the underlying MCP backend connects
+# during the FastAPI lifespan (``app/main.py``).
+WEB = web_instructions()
 
 
 def load_instructions(agent_id: str) -> str:

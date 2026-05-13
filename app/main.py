@@ -19,6 +19,7 @@ from agno.utils.log import log_info
 from agents.sql_service_guide import sql_service_guide_agent
 from agents.system_health import system_health_agent
 from agents.text2sql import text2sql_agent
+from agents.utils.web_context import web_backend
 from db import get_postgres_db
 
 # ---------------------------------------------------------------------------
@@ -30,17 +31,19 @@ auth_enabled = getenv("AUTH_ENABLED", "false").lower() in ("true", "1", "yes")
 
 
 # ---------------------------------------------------------------------------
-# Lifespan — extension hook for app-level startup / teardown.
-#
-# AgentOS handles the MCP lifecycle (connect on startup, close on shutdown).
-# Keep this hook in place so you can plug in your own setup as needed.
+# Lifespan — sets up shared context backends (web research) for the
+# duration of the app process. AgentOS handles the MCP tool lifecycle
+# (connect on startup, close on shutdown) on top of this hook.
 # ---------------------------------------------------------------------------
 @asynccontextmanager
 async def lifespan(app):  # type: ignore[no-untyped-def]
     log_info("AgentOS lifespan: startup")
+    backend = web_backend()
+    await backend.asetup()
     try:
         yield
     finally:
+        await backend.aclose()
         log_info("AgentOS lifespan: shutdown")
 
 

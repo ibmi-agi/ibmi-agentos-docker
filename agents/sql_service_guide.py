@@ -11,16 +11,12 @@ Toolsets (from tools/sys-admin.yaml):
   - sysadmin_search     (search by name, get examples, locate services)
 
 Plus the core SQL tools (execute_sql, validate_query, describe_sql_object)
-and Parallel.ai web research.
+and web research via the ``agents.utils.web_context`` ContextProvider.
 """
 
 from __future__ import annotations
 
-from os import getenv
-
 from agno.agent import Agent
-from agno.tools.mcp import MCPTools
-from agno.tools.parallel import ParallelTools
 
 from agents import AGENT_DEFAULTS
 from agents.config import CORE_SQL_TOOLS, SQL_CONFIRMATION_TOOLS
@@ -29,11 +25,14 @@ from agents.utils.common import (
     FORMATTING,
     GUARDRAILS,
     SQL_POLICY,
+    WEB,
     build_instructions,
 )
 from agents.utils.toolsets import collect_tools, ibmi_tools
+from agents.utils.web_context import web_tools
 from app.settings import default_model
 from db import get_postgres_db
+from learning import get_learning
 
 # =============================================================================
 # Agent Configuration
@@ -49,13 +48,8 @@ execute SQL Services; it teaches users about them.\
 """
 
 # =============================================================================
-# Tools — sysadmin toolsets + core SQL + Parallel.ai web research
+# Tools — sysadmin toolsets + core SQL + web research sub-agent
 # =============================================================================
-
-if getenv("PARALLEL_API_KEY"):
-    _web_tools: ParallelTools | MCPTools = ParallelTools()
-else:
-    _web_tools = MCPTools(url="https://search.parallel.ai/mcp", transport="streamable-http")
 
 tools = collect_tools(
     ibmi_tools(
@@ -67,7 +61,7 @@ tools = collect_tools(
         include_tools=CORE_SQL_TOOLS,
         requires_confirmation_tools=SQL_CONFIRMATION_TOOLS,
     ),
-    _web_tools,
+    *web_tools(),
 )
 
 # =============================================================================
@@ -78,6 +72,7 @@ INSTRUCTIONS = build_instructions(
     GUARDRAILS,
     DOMAIN_RULES,
     SQL_POLICY,
+    WEB,
     FORMATTING,
     agent_id=AGENT_ID,
 )
@@ -94,5 +89,6 @@ sql_service_guide_agent = Agent(
     instructions=INSTRUCTIONS,
     tools=tools,
     db=get_postgres_db(),
+    learning=get_learning(),
     **AGENT_DEFAULTS,
 )

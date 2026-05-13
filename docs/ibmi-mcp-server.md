@@ -11,7 +11,7 @@ agentos-api (FastAPI, port 8000)
         ▼
 ibmi-mcp-server (port 3010)
         │
-        │ Db2 for i over JDBC/ODBC (port 8076 by default)
+        │ Db2 for i over Mapepire (port 8076 by default)
         ▼
 IBM i system (DB2i_HOST)
 ```

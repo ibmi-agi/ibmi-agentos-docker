@@ -23,14 +23,18 @@ agents/                IBM i agent modules + shared utilities
   config.py            MCP_URL, SQL tool lists
   instructions/        Per-agent mission markdown
   utils/
-    common.py          GUARDRAILS / DOMAIN_RULES / SQL_POLICY / FORMATTING blocks
-    toolsets.py        ibmi_tools() factory — the only way agents touch MCP
+    common.py          GUARDRAILS / DOMAIN_RULES / SQL_POLICY / WEB / FORMATTING blocks
+    toolsets.py        ibmi_tools() factory — the only way agents touch IBM i MCP
     tools.py           toolsets.json loader
+    web_context.py     Parallel.ai ContextProvider (sub-agent synthesizes web research)
     lazy_mcp.py        LazyMCPTools — used only when AUTH_ENABLED=true
 app/
-  main.py              AgentOS instantiation, literal agent list
+  main.py              AgentOS instantiation, literal agent list, web backend lifespan
   settings.py          default_model() — reads DEFAULT_MODEL_ID env
   config.yaml          chat quick-prompts per agent
+learning/              LearningMachine factory (generic, knowledge OFF by default)
+  __init__.py          Re-exports get_learning, LearningConfig, DEFAULT_CONFIG
+  factory.py           Slim factory — pass learning=get_learning() to each agent
 auth/                  Optional multi-user MCP auth (off by default)
 db/                    Postgres + pgvector helpers
 tools/                 IBM i tool YAMLs + generated toolsets.json + schema
@@ -95,8 +99,8 @@ For forks: also run a brand-string scrub — see [`docs/review-and-improve.md`](
 ### Don't add (deliberate cuts)
 
 - **No `app/registry.py` / `app/factory.py`** — explicit imports in `app/main.py` only
-- **No learning system** — Agno's built-in memory is enabled via `AGENT_DEFAULTS.enable_agentic_memory=True`; no custom learning extraction
-- **No custom knowledge base wiring** in the reference agents — `db.create_knowledge()` is available but not used by default
+- **No shipped knowledge base** — `learning/factory.py` defaults to `enable_learned_knowledge=False`; `db.create_knowledge()` is available and can be passed to `get_learning(knowledge=...)` when you wire one up
+- **No domain-specific learning schemas** — `learning/factory.py::LearningConfig` ships with generic Agno schemas; add your own (e.g. a `Db2InstanceFact` schema) by passing `entity_memory_schema=` to a per-agent `LearningConfig`
 - **No Slack / Discord / other interfaces in `app/main.py`** — the railway template's Slack hook was removed; add yours when needed
 - **No team-member deep-copy variants** — agents are single-form
 - **No upstream-fork brand strings or env-var prefixes** (any project name the template was derived from)
