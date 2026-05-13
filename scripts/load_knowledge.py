@@ -6,8 +6,8 @@ Usage:
     uv run python scripts/load_knowledge.py --recreate  # drop tables and reload
 
 Run this after editing any file under ``knowledge/`` so the changes
-land in the vector store. The embedder is whatever ``EMBEDDING_PROVIDER``
-in ``.env`` points at (default: Ollama with ``qwen3-embedding:0.6b``).
+land in the vector store. The embedder is OpenAI (``text-embedding-3-small``
+by default — override with ``EMBEDDING_MODEL``).
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Load .env before any agno imports so EMBEDDING_PROVIDER / OLLAMA_HOST
+# Load .env before any agno imports so OPENAI_API_KEY / EMBEDDING_MODEL
 # are visible when create_knowledge() runs.
 load_dotenv()
 

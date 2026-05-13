@@ -6,11 +6,9 @@ PostgreSQL connection helpers.
 ``get_postgres_db()`` for agent storage backed by Postgres.
 ``create_knowledge()`` for agent knowledge backed by PgVector.
 
-Embedder choice is env-driven so the template ships offline-friendly
-(local Ollama) but switches to OpenAI with one variable change:
-
-    EMBEDDING_PROVIDER=ollama  EMBEDDING_MODEL=qwen3-embedding:0.6b   (default)
-    EMBEDDING_PROVIDER=openai  EMBEDDING_MODEL=text-embedding-3-small
+Embedder is OpenAI (``text-embedding-3-small`` by default). Set
+``OPENAI_API_KEY`` in ``.env`` — the model can be overridden with
+``EMBEDDING_MODEL``.
 """
 
 from __future__ import annotations
@@ -40,27 +38,11 @@ def get_postgres_db(contents_table: str | None = None) -> PostgresDb:
 
 
 def get_embedder() -> Any:
-    """Build the embedder per ``EMBEDDING_PROVIDER`` + ``EMBEDDING_MODEL``.
+    """OpenAI embedder. Reads ``EMBEDDING_MODEL`` (default ``text-embedding-3-small``)."""
+    from agno.knowledge.embedder.openai import OpenAIEmbedder
 
-    Defaults to local Ollama (``qwen3-embedding:0.6b``) so the template
-    runs offline. The ``ollama`` service in ``compose.yaml`` pulls the
-    model on first boot.
-    """
-    provider = getenv("EMBEDDING_PROVIDER", "ollama").lower()
-    if provider == "ollama":
-        from agno.knowledge.embedder.ollama import OllamaEmbedder
-
-        model_id = getenv("EMBEDDING_MODEL", "qwen3-embedding:0.6b")
-        host = getenv("OLLAMA_HOST", "http://localhost:11434")
-        return OllamaEmbedder(id=model_id, host=host)
-    if provider == "openai":
-        from agno.knowledge.embedder.openai import OpenAIEmbedder
-
-        model_id = getenv("EMBEDDING_MODEL", "text-embedding-3-small")
-        return OpenAIEmbedder(id=model_id)
-    raise ValueError(
-        f"Unsupported EMBEDDING_PROVIDER={provider!r}. Use 'ollama' or 'openai'."
-    )
+    model_id = getenv("EMBEDDING_MODEL", "text-embedding-3-small")
+    return OpenAIEmbedder(id=model_id)
 
 
 def create_knowledge(name: str, table_name: str) -> Knowledge:

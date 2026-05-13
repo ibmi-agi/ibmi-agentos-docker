@@ -26,9 +26,16 @@ echo -e "${NC}"
 
 if [[ "$WAIT_FOR_DB" = true || "$WAIT_FOR_DB" = True ]]; then
     echo -e "    ${DIM}Waiting for database at ${DB_HOST}:${DB_PORT}...${NC}"
-    dockerize -wait tcp://$DB_HOST:$DB_PORT -timeout 300s
-    echo -e "    ${BOLD}Database ready.${NC}"
-    echo ""
+    # Bash /dev/tcp: portable TCP probe with no extra deps. 300s timeout.
+    for _ in $(seq 1 300); do
+        if (exec 3<>/dev/tcp/"$DB_HOST"/"$DB_PORT") 2>/dev/null; then
+            exec 3<&- 3>&-
+            echo -e "    ${BOLD}Database ready.${NC}"
+            echo ""
+            break
+        fi
+        sleep 1
+    done
 fi
 
 case "$1" in
