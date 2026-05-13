@@ -85,13 +85,14 @@ Open the repo in [Claude Code](https://claude.com/claude-code) and paste any of 
 | Prompt | What it does |
 |---|---|
 | `Run docs/create-new-agent.md` | Socratic walkthrough that scaffolds a new IBM i agent end-to-end |
-| `Run docs/extend-agent.md` | Adds a new toolset YAML to an existing agent |
+| `Run docs/extend-agent.md` | Designs and ships a new tool/toolset YAML (introspect → validate SQL → preview → author) and wires it into an agent |
 | `Run docs/improve-agent.md` | Probe-loop hardening — derives probes from the agent's contract, runs them, edits until they pass |
 | `Run docs/eval-and-improve.md` | Runs the IBM i eval suite (`evals/cases.py`), diagnoses failures, fixes |
 | `Run docs/review-and-improve.md` | Sweep for drift (stale `toolsets.json`, missing env vars, deployment hygiene) |
 
-Plus three reference docs:
+Plus four reference docs:
 
+- [`docs/tool-design-reference.md`](docs/tool-design-reference.md) — YAML schema, conventions, worked examples, common mistakes — read before authoring any `tools/*.yaml`
 - [`docs/ibmi-mcp-server.md`](docs/ibmi-mcp-server.md) — how the MCP server, tool YAMLs, and `parse_mcp_tools.py` fit together
 - [`docs/knowledge-base.md`](docs/knowledge-base.md) — how `knowledge/`, the embedder, and `scripts/load_knowledge.py` work
 - [`docs/auth-optional.md`](docs/auth-optional.md) — how to opt in to multi-user IBM i credentials

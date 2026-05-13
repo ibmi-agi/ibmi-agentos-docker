@@ -1,106 +1,172 @@
-# Extend an IBM i Agent (add a new toolset)
+# Extend an IBM i Agent (build a new tool / toolset)
 
 > Claude Code prompt. Open Claude Code in this repo and paste:
 > `Run docs/extend-agent.md`
 
-You are pair-programming with the user to give an existing IBM i agent a new capability. Usually this means: add a new toolset (a `tools/*.yaml`), regenerate `tools/toolsets.json`, wire the toolset into the agent's `ibmi_tools([...])`, smoke-test.
+You are pair-programming with the user to give an existing IBM i agent a new capability. That means: design one or more SQL tools, write them as a new `tools/*.yaml`, regenerate `tools/toolsets.json`, wire the toolset into the agent's `ibmi_tools([...])`, smoke-test.
 
-Loop: change → smoke-test → "anything else?".
+The schema, conventions, and pitfalls live in **[`docs/tool-design-reference.md`](tool-design-reference.md)** — read it before authoring YAML. This doc orchestrates the workflow; that one is the field manual.
+
+Loop: clarify → introspect → validate SQL → preview → author YAML → smoke-test → "anything else?".
 
 ## 0. Preconditions
 
 - Stack up: `curl -sSf http://localhost:8000/healthz` and `curl -sSf http://localhost:3010/healthz` both return 200.
 - The user has named (a) the existing agent (slug) and (b) the capability they want to add.
+- `ibmi` CLI available on the host: `ibmi --version`. Used for introspection. If missing, you can fall back to the MCP server's `describe_sql_object` / `get_table_columns` / `validate_query` tools via `curl http://localhost:3010/mcp` (slower path).
 
-If the capability isn't naturally an IBM i SQL/CL tool, route them to [`docs/create-new-agent.md`](create-new-agent.md) instead — they probably want a new agent rather than an extension.
+If the capability isn't naturally an IBM i SQL tool (e.g. it's a new agent persona, or it's purely CL with no SQL surface), route the user to [`docs/create-new-agent.md`](create-new-agent.md) instead.
 
 ## 1. Clarify the capability
 
-Ask via `AskUserQuestion` in one message:
+Ask via `AskUserQuestion` in **one** consolidated message:
 
-- **What does the new capability do?** One sentence. ("Show me the message queue contents", "List failed jobs from the last 24 hours", "Audit *PUBLIC authority on a library", …)
-- **Does the data come from a known QSYS2 / SYSTOOLS view, a UDTF, or a CL command?** If they don't know, ask which approach feels closer; you can investigate.
-- **Read-only or modifying?** Read-only is the default and safest. If modifying, the tool must be in `requires_confirmation` per `SQL_POLICY`.
+- **What does the new capability do?** One sentence. ("Audit *PUBLIC authority on user profiles", "List failed jobs from the last 24 hours", "Show storage usage per ASP", …)
+- **Where does the data live?** A known `QSYS2` / `SYSTOOLS` view? A UDTF? Unknown — investigate by introspection? Pick one.
+- **Read-only or modifying?** Read-only is the default and the safest. If modifying, the tool will need `readOnly: false` + `destructiveHint: true` and must be added to `requires_confirmation_tools` in the agent.
+- **Domain / category** — short tags for `annotations.domain` / `annotations.category` (e.g. `operations` / `daily_health`, `security` / `audit`). Surface existing tag values from `tools/*.yaml` so the user can match.
 
-## 2. Find or design the SQL / CL
+Don't proceed until you have these answers.
 
-Open the IBM i MCP server's tool YAMLs in `tools/` for reference. The schema is documented inline in `tools/sql-tools-config.schema.json`. The shape of a tool entry:
+## 2. Introspect IBM i
+
+Before writing SQL, capture the real schema. Pick the level of detail that matches what the user said in step 1.
+
+```bash
+# Find the schema/library
+ibmi schemas --format json | jq '.[] | select(.schema | test("QSYS"; "i")) | .schema'
+
+# Find candidate tables/views in a schema
+ibmi tables QSYS2 --format json | jq '.[] | select(.name | test("AUTH"; "i")) | .name'
+
+# Get exact column names and types
+ibmi columns QSYS2 USER_INFO_BASIC --format json
+
+# Or generate DDL for a deeper look
+ibmi describe QSYS2.USER_INFO_BASIC
+```
+
+If the user named a UDTF/view, jump straight to `ibmi columns` / `ibmi describe`. If they're not sure, browse with `ibmi tables`. Capture the **exact** column names and types — Db2 for i is case-sensitive about identifier quoting and Tech Refresh adds/removes columns regularly.
+
+**Fallback** (no `ibmi` CLI on host):
+
+```bash
+# Use the MCP server's describe_sql_object directly
+curl -s -X POST http://localhost:3010/mcp \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"describe_sql_object","arguments":{"object_name":"QSYS2.USER_INFO_BASIC"}}}' | jq .
+```
+
+## 3. Draft and validate the SQL
+
+Write the SQL statement (or statements — one per tool you plan to ship). Apply [`docs/tool-design-reference.md`](tool-design-reference.md) §7 conventions: `FETCH FIRST`, `UPPER()` for EBCDIC, fully qualified names, `:param` placeholders.
+
+Validate every statement before adding it to YAML:
+
+```bash
+ibmi validate "SELECT AUTHORIZATION_NAME, USER_CLASS_NAME
+FROM QSYS2.USER_INFO_BASIC
+WHERE USER_CLASS_NAME = '*SECOFR'
+FETCH FIRST 50 ROWS ONLY"
+```
+
+Parameter markers (`:name`) are fine in `ibmi validate` — it parses without binding. Loop on syntax errors. For a quick reality check, run a small slice:
+
+```bash
+ibmi sql --raw "SELECT COUNT(*) FROM QSYS2.USER_INFO_BASIC"
+```
+
+Don't move forward until every planned statement passes validation.
+
+## 4. Preview the tool plan with the user
+
+Before writing any YAML, show the user a markdown table of what you intend to ship:
+
+```markdown
+| Tool name | Description | SQL (preview) | Parameters | Read-only |
+|---|---|---|---|---|
+| audit_secofr_users | Lists *SECOFR-class users | SELECT … FROM QSYS2.USER_INFO_BASIC … | row_limit (int, default 100) | yes |
+| audit_user_authorities | Shows authorities granted to a user profile | SELECT … FROM QSYS2.OBJECT_PRIVILEGES … | user (string, required), row_limit (int) | yes |
+```
+
+Then ask: **"Confirm this plan or request changes?"** Wait for an explicit OK.
+
+This is the equivalent of ixora's `agent_builder.py` "preview-before-register" gate. Don't skip it — it's much cheaper to revise the plan now than to rewrite YAML + re-run `parse_mcp_tools.py` twice.
+
+## 5. Author the YAML
+
+Read [`docs/tool-design-reference.md`](tool-design-reference.md) §2–§6 before authoring. Then create `tools/<new-toolset>.yaml`. **One toolset per file** is the convention.
+
+Skeleton (fill in from your plan + introspection):
 
 ```yaml
-sources:
-  ibmi-system:
-    host: ${DB2i_HOST}
-    user: ${DB2i_USER}
-    password: ${DB2i_PASS}
-    port: ${DB2i_PORT:-8076}
+# Optional: redeclare sources only if this file is standalone.
+# Otherwise rely on sources declared in another tools/*.yaml (e.g. daily-health.yaml).
 
 tools:
-  list_failed_jobs:
+  <tool_name>:
     source: ibmi-system
-    title: List Failed Jobs
     description: |
-      Returns jobs from the last N hours whose final status was *FAILED.
+      <AI-facing description: what it returns, when to use it,
+       how it differs from sibling tools>
     statement: |
-      SELECT job_name, job_user, job_status, message_text
-      FROM TABLE(QSYS2.JOB_QUEUE_INFO())
-      WHERE job_status = '*FAILED'
-        AND start_timestamp > CURRENT TIMESTAMP - :hours_back HOURS
-      FETCH FIRST :max_rows ROWS ONLY
+      SELECT ...
+      FROM QSYS2.<view_or_udtf>
+      WHERE ...
+      FETCH FIRST :row_limit ROWS ONLY
     parameters:
-      - name: hours_back
-        type: integer
-        default: 24
-      - name: max_rows
-        type: integer
-        default: 100
+      - name: <param>
+        type: <string|integer|boolean|float|array>
+        description: "..."
+        required: true
     security:
       readOnly: true
     annotations:
-      destructiveHint: false
+      readOnlyHint: true
+      idempotentHint: true
+      domain: "<domain>"
+      category: "<category>"
 
 toolsets:
-  job_diagnostics:
-    title: Job Diagnostics
-    description: Diagnose failed and long-running jobs.
+  <toolset_name>:
+    title: "<Human title>"
+    description: "<one-line summary>"
     tools:
-      - list_failed_jobs
+      - <tool_name>
 ```
 
-Rules:
-- Use Db2 for i syntax (`FETCH FIRST`, parameter markers `:name`)
-- Use fully qualified names (`QSYS2.JOB_QUEUE_INFO`, `SYSTOOLS.*`)
-- Mark `readOnly: true` for SELECT-only tools — the MCP server's validator enforces this
-- Group related tools into a `toolset` so agents can grab them as a unit
+For modifying tools (`readOnly: false`), add `destructiveHint: true` under `annotations`, and remember step 7 will plumb the tool into `requires_confirmation_tools`.
 
-If the SQL is non-obvious, ask the user to confirm the QSYS2 / SYSTOOLS function or view name before pasting into the YAML.
-
-## 3. Add the YAML
-
-Create `tools/<new-toolset>.yaml`. Keep it focused — one toolset per file is the norm in this template.
-
-## 4. Validate & regenerate
+## 6. Validate and regenerate
 
 ```bash
 uv run python parse_mcp_tools.py
 ```
 
-This validates every YAML against `tools/sql-tools-config.schema.json` and rewrites `tools/toolsets.json`. If validation fails, fix the YAML — schema errors print with line numbers.
+This validates every YAML against `tools/sql-tools-config.schema.json` and rewrites `tools/toolsets.json`. If it fails:
 
-## 5. Reload the MCP server
+1. Read the error path and message.
+2. Consult [`docs/tool-design-reference.md`](tool-design-reference.md) §9 (common mistakes) and §10 (validation-error → fix map).
+3. Fix the YAML, rerun.
 
-The compose file mounts `./tools` into the container with `YAML_AUTO_RELOAD=true`, so changes should pick up within a few seconds. Verify:
+Don't skip rereading the reference — most errors map directly to a known mistake.
+
+## 7. Verify the MCP server picked it up
+
+The compose file mounts `./tools` into the MCP container with `YAML_AUTO_RELOAD=true`, so changes should appear within a few seconds:
 
 ```bash
 curl -s http://localhost:3010/mcp/tools | jq '.tools[].name' | grep <new-tool-name>
 ```
 
-If the tool name doesn't appear, restart the container:
+If the tool doesn't appear:
 
 ```bash
-docker compose restart ibmi-mcp-server
+docker compose logs ibmi-mcp-server --tail 50    # check for reload errors
+docker compose restart ibmi-mcp-server           # nuclear option
 ```
 
-## 6. Wire into the agent
+## 8. Wire into the agent
 
 Edit the agent module (`agents/<slug>.py`) and add the new toolset to its `ibmi_tools(...)` call:
 
@@ -110,7 +176,7 @@ tools = collect_tools(
         [
             "<existing_toolset_a>",
             "<existing_toolset_b>",
-            "<new_toolset>",            # added
+            "<new_toolset>",                       # added
         ],
         include_tools=CORE_SQL_TOOLS,
         requires_confirmation_tools=SQL_CONFIRMATION_TOOLS,
@@ -119,11 +185,11 @@ tools = collect_tools(
 )
 ```
 
-If the new toolset has modifying tools, add their names to `requires_confirmation_tools` too.
+If any tool in the new toolset is modifying (`readOnly: false`), add its name to `requires_confirmation_tools` too.
 
-Then update the agent's instruction markdown (`agents/instructions/ibmi-<slug>.md`) — add a routing rule that tells the agent **when** to use the new toolset. Without this, the agent will see new tools but not know when to pick them.
+Then update the agent's instruction markdown (`agents/instructions/ibmi-<slug>.md`) — add a routing rule that tells the agent **when** to reach for the new toolset. Without this, the agent will see new tools but not know when to pick them.
 
-## 7. Restart and smoke test
+## 9. Restart and smoke test
 
 ```bash
 docker compose restart agentos-api
@@ -131,8 +197,8 @@ sleep 2
 uv run python cli.py --agent <slug> --prompt "<question only the new toolset can answer>"
 ```
 
-Watch the response. Did the agent call the new tool? Was the output correct? If the agent ignored the new toolset, the instructions step (6) probably needs sharper routing language.
+Watch the response. Did the agent call the new tool? Was the output correct? If the agent ignored the new toolset, sharpen the routing language in the instruction markdown (step 8) and try again.
 
-## 8. "Anything else?"
+## 10. "Anything else?"
 
-Ask the user if they want to add more tools to this toolset, or move on. Loop until done. Then summarize the changes (files touched, new toolset name, new tool names) and let the user commit.
+Ask the user if they want to add more tools to this toolset, or move on. Loop until done. Then summarize the changes (files touched, new toolset name, new tool names) and let the user commit — don't run `git add` automatically.

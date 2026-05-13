@@ -130,16 +130,17 @@ For forks: also run a brand-string scrub — see [`docs/review-and-improve.md`](
 
 | File | Purpose |
 |---|---|
-| `docs/create-new-agent.md` | Socratic walk: domain → toolsets → safety → slug → scaffold → register → smoke test |
-| `docs/extend-agent.md` | Add a new `tools/*.yaml`, regen, wire into an agent |
+| `docs/create-new-agent.md` | Two-phase walk: Phase 1 (decide on toolsets, build missing ones inline) → Phase 2 (scaffold agent, register, smoke-test) |
+| `docs/extend-agent.md` | Design & ship a `tools/*.yaml`: introspect IBM i → validate SQL → preview → author → regen → wire into agent |
 | `docs/improve-agent.md` | Probe-loop hardening from the agent's contract |
 | `docs/eval-and-improve.md` | Run `python -m evals`, diagnose failures, fix in scope |
 | `docs/review-and-improve.md` | Sweep for drift (stale `toolsets.json`, missing env vars, brand-scrub) |
 
-Plus four reference docs:
+Plus five reference docs:
 
 | File | Purpose |
 |---|---|
+| `docs/tool-design-reference.md` | YAML schema, parameter/security/annotations fields, worked examples, common-mistakes list, validation-error → fix map. Read before authoring any `tools/*.yaml` |
 | `docs/ibmi-mcp-server.md` | How `tools/*.yaml`, `parse_mcp_tools.py`, and the MCP server fit together |
 | `docs/knowledge-base.md` | How `knowledge/`, the embedder, and `scripts/load_knowledge.py` work |
 | `docs/auth-optional.md` | How to enable multi-user IBM i credentials |
