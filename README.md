@@ -49,18 +49,20 @@ Agents work without this step; they just lose the knowledge-search context. See 
 Talk to an agent from the terminal:
 
 ```bash
-uv run python cli.py --agent text2sql --prompt "list schemas containing QSYS"
-uv run python cli.py --agent system-health --prompt "what is current CPU utilization?"
-uv run python cli.py                                  # interactive REPL
+uv run cli.py --agent text2sql --prompt "list schemas containing QSYS"
+uv run cli.py --agent system-health --prompt "what is current CPU utilization?"
+uv run cli.py                                  # interactive REPL
 ```
 
 Or via HTTP:
 
 ```bash
-curl -s -X POST -H "Content-Type: application/json" \
-    http://localhost:8000/agents/ibmi-text2sql/runs \
-    -d '{"input": "describe QSYS2.SYSTABLES"}'
+curl -s -X POST http://localhost:8000/agents/ibmi-text2sql/runs \
+    -F "message=describe QSYS2.SYSTABLES" \
+    -F "stream=false"
 ```
+
+The `/agents/{agent_id}/runs` endpoint takes `multipart/form-data` (not JSON) — see the OpenAPI spec at `http://localhost:8000/docs`. Required field is `message`; useful optional fields are `stream`, `session_id`, `user_id`, and `files` for attachments.
 
 ## How it fits together
 
