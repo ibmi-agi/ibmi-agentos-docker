@@ -5,15 +5,15 @@
 
 You are pair-programming with the user to give an existing IBM i agent a new capability. That means: design one or more SQL tools, write them as a new `tools/*.yaml`, regenerate `tools/toolsets.json`, wire the toolset into the agent's `ibmi_tools([...])`, smoke-test.
 
-The schema, conventions, and pitfalls live in **[`docs/tool-design-reference.md`](tool-design-reference.md)** — read it before authoring YAML. This doc orchestrates the workflow; that one is the field manual.
+The schema, conventions, and pitfalls live in **[`docs/tool-design-reference.md`](tool-design-reference.md)** — read it before authoring YAML. The end-to-end tool-authoring loop with worked SAMPLE examples lives in **[`docs/write-new-tool.md`](write-new-tool.md)**. CLI background: [`docs/ibmi-cli.md`](ibmi-cli.md). This doc orchestrates the iterative agent-extension flow; those are the field manuals.
 
 Loop: clarify → introspect → validate SQL → preview → author YAML → smoke-test → "anything else?".
 
 ## 0. Preconditions
 
 - Stack up: `curl -sSf http://localhost:8000/healthz` and `curl -sSf http://localhost:3010/healthz` both return 200.
-- The user has named (a) the existing agent (slug) and (b) the capability they want to add.
-- `ibmi` CLI available on the host: `ibmi --version`. Used for introspection. If missing, you can fall back to the MCP server's `describe_sql_object` / `get_table_columns` / `validate_query` tools via `curl http://localhost:3010/mcp` (slower path).
+- The user has named (a) the existing agent (slug — the SAMPLE Data Agent is `ibmi-data-agent`) and (b) the capability they want to add.
+- `ibmi` CLI working: `ibmi sql "VALUES CURRENT_DATE"` returns today's date. Used for introspection and SQL validation. Setup: [`docs/ibmi-cli.md`](ibmi-cli.md).
 
 If the capability isn't naturally an IBM i SQL tool (e.g. it's a new agent persona, or it's purely CL with no SQL surface), route the user to [`docs/create-new-agent.md`](create-new-agent.md) instead.
 
@@ -34,28 +34,19 @@ Before writing SQL, capture the real schema. Pick the level of detail that match
 
 ```bash
 # Find the schema/library
-ibmi schemas --format json | jq '.[] | select(.schema | test("QSYS"; "i")) | .schema'
+ibmi schemas --filter "SAMPLE"
 
 # Find candidate tables/views in a schema
-ibmi tables QSYS2 --format json | jq '.[] | select(.name | test("AUTH"; "i")) | .name'
+ibmi tables SAMPLE
 
 # Get exact column names and types
-ibmi columns QSYS2 USER_INFO_BASIC --format json
+ibmi columns SAMPLE EMPLOYEE
 
 # Or generate DDL for a deeper look
-ibmi describe QSYS2.USER_INFO_BASIC
+ibmi describe "SAMPLE.EMPLOYEE"
 ```
 
 If the user named a UDTF/view, jump straight to `ibmi columns` / `ibmi describe`. If they're not sure, browse with `ibmi tables`. Capture the **exact** column names and types — Db2 for i is case-sensitive about identifier quoting and Tech Refresh adds/removes columns regularly.
-
-**Fallback** (no `ibmi` CLI on host):
-
-```bash
-# Use the MCP server's describe_sql_object directly
-curl -s -X POST http://localhost:3010/mcp \
-  -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"describe_sql_object","arguments":{"object_name":"QSYS2.USER_INFO_BASIC"}}}' | jq .
-```
 
 ## 3. Draft and validate the SQL
 
@@ -64,16 +55,16 @@ Write the SQL statement (or statements — one per tool you plan to ship). Apply
 Validate every statement before adding it to YAML:
 
 ```bash
-ibmi validate "SELECT AUTHORIZATION_NAME, USER_CLASS_NAME
-FROM QSYS2.USER_INFO_BASIC
-WHERE USER_CLASS_NAME = '*SECOFR'
+ibmi validate "SELECT EMPNO, FIRSTNME, LASTNAME, SALARY
+FROM SAMPLE.EMPLOYEE
+WHERE WORKDEPT = :workdept
 FETCH FIRST 50 ROWS ONLY"
 ```
 
 Parameter markers (`:name`) are fine in `ibmi validate` — it parses without binding. Loop on syntax errors. For a quick reality check, run a small slice:
 
 ```bash
-ibmi sql --raw "SELECT COUNT(*) FROM QSYS2.USER_INFO_BASIC"
+ibmi sql "SELECT COUNT(*) FROM SAMPLE.EMPLOYEE"
 ```
 
 Don't move forward until every planned statement passes validation.
@@ -85,8 +76,8 @@ Before writing any YAML, show the user a markdown table of what you intend to sh
 ```markdown
 | Tool name | Description | SQL (preview) | Parameters | Read-only |
 |---|---|---|---|---|
-| audit_secofr_users | Lists *SECOFR-class users | SELECT … FROM QSYS2.USER_INFO_BASIC … | row_limit (int, default 100) | yes |
-| audit_user_authorities | Shows authorities granted to a user profile | SELECT … FROM QSYS2.OBJECT_PRIVILEGES … | user (string, required), row_limit (int) | yes |
+| list_employees_by_department | Lists employees in a given department | SELECT … FROM SAMPLE.EMPLOYEE WHERE WORKDEPT = :workdept | workdept (string, required), row_limit (int, default 50) | yes |
+| count_employees_by_job | Aggregates headcount per JOB code | SELECT JOB, COUNT(*) FROM SAMPLE.EMPLOYEE GROUP BY JOB | (none) | yes |
 ```
 
 Then ask: **"Confirm this plan or request changes?"** Wait for an explicit OK.
@@ -95,17 +86,17 @@ This is the equivalent of ixora's `agent_builder.py` "preview-before-register" g
 
 ## 5. Author the YAML
 
-Read [`docs/tool-design-reference.md`](tool-design-reference.md) §2–§6 before authoring. Then create `tools/<new-toolset>.yaml`. **One toolset per file** is the convention.
+Read [`docs/tool-design-reference.md`](tool-design-reference.md) §2–§6 before authoring. Then create `tools/<new-toolset>.yaml` (or extend `tools/sample.yaml` if the new tool naturally fits the SAMPLE toolset). **One toolset per file** is the convention.
 
 Skeleton (fill in from your plan + introspection):
 
 ```yaml
 # Optional: redeclare sources only if this file is standalone.
-# Otherwise rely on sources declared in another tools/*.yaml (e.g. daily-health.yaml).
+# Otherwise rely on sources declared in another tools/*.yaml (e.g. sample.yaml).
 
 tools:
   <tool_name>:
-    source: ibmi-system
+    source: ibmi-sample
     description: |
       <AI-facing description: what it returns, when to use it,
        how it differs from sibling tools>

@@ -1,6 +1,8 @@
-# CLI Mode — Run Without the MCP Server
+# Runtime CLI Mode — Run Without the MCP Server
 
-By default, every agent in this template reaches IBM i through the `ibmi-mcp-server` container. CLI Mode is an alternate path: agents talk to a local `ibmi` binary that's baked into the container image, with no MCP server in the loop.
+> **This document is about the *runtime* CLI fallback (`IBMI_CLI_MODE`).** If you are looking for how to use the `ibmi` CLI to **author and validate tools**, see [`docs/ibmi-cli.md`](ibmi-cli.md) and [`docs/write-new-tool.md`](write-new-tool.md). The two uses of the CLI are independent — you can author tools with `ibmi` while running the agent against the MCP server, or vice versa.
+
+By default, every agent in this template reaches IBM i through the `ibmi-mcp-server` container. Runtime CLI Mode is an alternate path: agents talk to a local `ibmi` binary that's baked into the container image, with no MCP server in the loop.
 
 Toggle it with one env var:
 
@@ -8,7 +10,7 @@ Toggle it with one env var:
 IBMI_CLI_MODE=true
 ```
 
-That's the entire user-facing change. The three reference agents (`text2sql`, `system_health`, `sql_service_guide`) work unchanged in both modes — only the toolkit that backs `ibmi_tools()` differs.
+That's the entire user-facing change. The IBM i Data Agent (`ibmi-data-agent`) works unchanged in both modes — only the toolkit that backs `ibmi_tools()` differs.
 
 ## When to use CLI Mode
 

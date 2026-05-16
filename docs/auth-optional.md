@@ -93,7 +93,7 @@ curl -s -H "Authorization: Bearer $AGENTOS_API_TOKEN" \
     http://localhost:8000/agents | jq '.[].id'
 ```
 
-Should return the three template agents. Without the bearer token:
+Should return the registered agent(s). Without the bearer token:
 
 ```bash
 curl -i http://localhost:8000/agents | head -1   # 401 Unauthorized
@@ -104,8 +104,8 @@ Now run an agent — it will use Alice's IBM i creds, not the shared `.env` ones
 ```bash
 curl -s -X POST -H "Authorization: Bearer $AGENTOS_API_TOKEN" \
     -H "Content-Type: application/json" \
-    http://localhost:8000/agents/ibmi-text2sql/runs \
-    -d '{"input": "list schemas"}' | jq
+    http://localhost:8000/agents/ibmi-data-agent/runs \
+    -d '{"input": "list the tables in SAMPLE"}' | jq
 ```
 
 ## What the auth/ modules do

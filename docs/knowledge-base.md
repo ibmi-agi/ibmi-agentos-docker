@@ -2,7 +2,9 @@
 
 The template ships with a shared **PgVector** knowledge base — every agent that declares `knowledge=ibmi_knowledge, search_knowledge=True` can search it on every turn. Seed content lives in `knowledge/` at the repo root; a small script ingests it into Postgres.
 
-The pattern is borrowed from Agno's `dash` data-agent template, simplified for a generic IBM i starter.
+The pattern is borrowed from Agno's `dash` data-agent template, simplified for a generic IBM i starter. The shipped content documents the Db2 for i **SAMPLE** library (EMPLOYEE, DEPARTMENT, PROJECT, …).
+
+**See also:** [`docs/extend-knowledge.md`](extend-knowledge.md) — the operator loop for adding a new table or business rule to the KB, driven by the `ibmi` CLI.
 
 ## Architecture
 
@@ -46,20 +48,30 @@ Embedder selection lives in [`db/session.py::get_embedder`](../db/session.py) �
 
 ### `knowledge/tables/*.json` — one file per table
 
+Required top-level keys: `table_name`, `table_description`, `use_cases`, `table_columns`. `data_quality_notes` is strongly recommended.
+
 ```json
 {
-  "table_name": "SCHEMA.TABLE",
-  "table_description": "One paragraph — purpose, row count order-of-magnitude, the unit of a row.",
-  "table_columns": [
-    {"name": "COL_NAME", "type": "TYPE", "description": "What it means. Note any gotchas inline."}
+  "table_name": "EMPLOYEE",
+  "schema": "SAMPLE",
+  "table_description": "Personnel records — salary, hire date, job role, department assignment. One row per employee, ~30 rows in the demo schema.",
+  "use_cases": [
+    "Find employees by department",
+    "Compute average salary or tenure by job/department"
   ],
   "data_quality_notes": [
-    "Bullet points for things that will bite the Analyst later."
+    "WORKDEPT is the foreign key to DEPARTMENT.DEPTNO — both CHAR(3)",
+    "BIRTHDATE / HIREDATE are DATE; some rows have NULL BIRTHDATE"
+  ],
+  "table_columns": [
+    {"name": "EMPNO", "type": "CHAR(6)", "description": "Employee number, primary key", "nullable": false}
   ]
 }
 ```
 
-**Write descriptions to be copy-pasted into a SQL review comment.** Good: "QUANTITY * unit price before DISCOUNT and TAX." Bad: "Extended price field." See examples under `knowledge/tables/`.
+**Write descriptions to be copy-pasted into a SQL review comment.** Good: "WORKDEPT is the foreign key to DEPARTMENT.DEPTNO — both CHAR(3)." Bad: "Department field." See examples under `knowledge/tables/`.
+
+Capture column metadata exactly — drive it with `ibmi columns SAMPLE EMPLOYEE` so you record the real names and types. Full loop: [`docs/extend-knowledge.md`](extend-knowledge.md).
 
 ### `knowledge/queries/*.sql` — validated example queries
 
@@ -100,11 +112,12 @@ uv run python scripts/load_knowledge.py --recreate  # drop and reload from scrat
 ## Verifying
 
 ```bash
-# How many vectors are in the store?
-docker exec agentos-db psql -U ai -d ai -c "SELECT COUNT(*) FROM ibmi_knowledge;"
+# How many vectors landed? scripts/load_knowledge.py prints a per-file
+# ingest summary at the end of every run — re-run it and read the totals.
+uv run python scripts/load_knowledge.py
 
 # What does the agent retrieve for a query?
-uv run python cli.py --agent text2sql --prompt "What's in QSYS2.SYSTABLES?"
+uv run python cli.py --agent ibmi-data-agent --prompt "Describe the EMPLOYEE table in SAMPLE"
 # Check the trace — search_knowledge results should appear before the SQL is composed
 ```
 
