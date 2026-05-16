@@ -1,0 +1,21 @@
+{
+  "table_name": "ACT",
+  "schema": "SAMPLE",
+  "table_description": "Activity reference table for the SAMPLE schema. One row per activity code — a short keyword and a human-readable description. The look-up side of EMP_ACT.ACTNO.",
+  "use_cases": [
+    "Resolve an ACTNO from EMP_ACT to a human-readable activity description",
+    "Filter activities by keyword (ACTKWD) when building project-effort reports",
+    "Join into EMP_ACT to break down an employee's or project's time by activity"
+  ],
+  "data_quality_notes": [
+    "ACTNO is SMALLINT (numeric) — unlike most other identifiers in SAMPLE which are CHAR. Don't quote it in WHERE clauses.",
+    "ACTKWD is CHAR(6) — short code, may be padded with trailing spaces depending on how it's read. Use TRIM() if matching free-form input.",
+    "ACTDESC is VARCHAR(20) — short, so descriptions may abbreviate (e.g. 'DOCUMENT' for 'DOCUMENTATION').",
+    "The shipped sample contains a small fixed catalog of activities; new activities are added rarely."
+  ],
+  "table_columns": [
+    {"name": "ACTNO", "type": "SMALLINT", "description": "Activity number, primary key. Numeric — compare without quotes.", "nullable": false},
+    {"name": "ACTKWD", "type": "CHAR(6)", "description": "Short activity keyword / code (e.g. 'CODE', 'DESIGN', 'TEST').", "nullable": false},
+    {"name": "ACTDESC", "type": "VARCHAR(20)", "description": "Human-readable activity description.", "nullable": false}
+  ]
+}

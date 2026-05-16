@@ -1,0 +1,36 @@
+{
+  "table_name": "EMPLOYEE",
+  "schema": "SAMPLE",
+  "table_description": "Personnel master record for the SAMPLE schema. One row per employee with name, department assignment, job title, hire date, education level, salary, bonus, and commission. The anchor table for most SAMPLE queries — almost every other table joins back to it on EMPNO.",
+  "use_cases": [
+    "Look up an employee by EMPNO, last name, or department",
+    "Compute headcount, average salary, or tenure aggregated by department or job",
+    "Resolve manager → direct-report relationships by joining DEPARTMENT.MGRNO back to EMPLOYEE.EMPNO",
+    "Drive joins into EMP_ACT to see what projects and activities an employee works on",
+    "Filter the population by SEX, EDLEVEL, or HIREDATE for demographic-style reports"
+  ],
+  "data_quality_notes": [
+    "EMPNO is CHAR(6), left-padded with zeros — compare with string literals like '000010', never the integer 10.",
+    "WORKDEPT is CHAR(3) and is the foreign key to DEPARTMENT.DEPTNO — both are strings ('A00', 'D11'), not integers.",
+    "WORKDEPT is nullable; a small number of employees may be unassigned. Use LEFT JOIN to DEPARTMENT if you need every employee.",
+    "SEX is CHAR(1) and is limited to 'F' or 'M' in the shipped data.",
+    "SALARY, BONUS, and COMM are DECIMAL(9,2); large aggregates can overflow — CAST(SUM(SALARY) AS DECIMAL(15,2)) for safety.",
+    "HIREDATE and BIRTHDATE are DATE columns and can be NULL on some legacy rows; aggregates should filter or COALESCE."
+  ],
+  "table_columns": [
+    {"name": "EMPNO", "type": "CHAR(6)", "description": "Employee number, primary key. Six-character string, left-padded with zeros (e.g. '000010').", "nullable": false},
+    {"name": "FIRSTNME", "type": "VARCHAR(12)", "description": "First name.", "nullable": false},
+    {"name": "MIDINIT", "type": "CHAR(1)", "description": "Middle initial.", "nullable": true},
+    {"name": "LASTNAME", "type": "VARCHAR(15)", "description": "Last (family) name.", "nullable": false},
+    {"name": "WORKDEPT", "type": "CHAR(3)", "description": "Department number the employee is assigned to. Foreign key to DEPARTMENT.DEPTNO.", "nullable": true},
+    {"name": "PHONENO", "type": "CHAR(4)", "description": "Internal phone extension.", "nullable": true},
+    {"name": "HIREDATE", "type": "DATE", "description": "Date the employee was hired.", "nullable": true},
+    {"name": "JOB", "type": "CHAR(8)", "description": "Job title (e.g. 'PRES', 'MANAGER', 'SALESREP', 'CLERK').", "nullable": true},
+    {"name": "EDLEVEL", "type": "SMALLINT", "description": "Years of formal education completed.", "nullable": false},
+    {"name": "SEX", "type": "CHAR(1)", "description": "Sex code — 'F' or 'M'.", "nullable": true},
+    {"name": "BIRTHDATE", "type": "DATE", "description": "Date of birth.", "nullable": true},
+    {"name": "SALARY", "type": "DECIMAL(9,2)", "description": "Annual base salary.", "nullable": true},
+    {"name": "BONUS", "type": "DECIMAL(9,2)", "description": "Most recent annual bonus.", "nullable": true},
+    {"name": "COMM", "type": "DECIMAL(9,2)", "description": "Commission earned (typically populated for sales jobs).", "nullable": true}
+  ]
+}

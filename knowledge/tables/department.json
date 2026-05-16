@@ -1,0 +1,26 @@
+{
+  "table_name": "DEPARTMENT",
+  "schema": "SAMPLE",
+  "table_description": "Organizational structure for the SAMPLE schema. One row per department with its name, the employee number of the department manager, the parent (administering) department, and the physical location. Departments form a tree via the self-referential ADMRDEPT column.",
+  "use_cases": [
+    "Resolve a department number ('A00', 'D11') to a human-readable name",
+    "Walk the department hierarchy via ADMRDEPT (each department's parent)",
+    "Find the manager of a given department by joining MGRNO back to EMPLOYEE.EMPNO",
+    "Identify departments without a manager (MGRNO IS NULL)",
+    "Count employees per department by joining to EMPLOYEE.WORKDEPT"
+  ],
+  "data_quality_notes": [
+    "DEPTNO is CHAR(3) and the primary key — compare with string literals ('A00'), not integers.",
+    "MGRNO is CHAR(6) matching EMPLOYEE.EMPNO; it is nullable — not every department has a manager assigned.",
+    "ADMRDEPT is self-referential: a department's parent is another department's DEPTNO. The root departments point at themselves.",
+    "LOCATION is often NULL or blank in the shipped data; don't rely on it as a required field.",
+    "Names in DEPTNAME use mixed-case English; case-insensitive comparison (UPPER()) is safer for free-form search."
+  ],
+  "table_columns": [
+    {"name": "DEPTNO", "type": "CHAR(3)", "description": "Department number, primary key (e.g. 'A00', 'B01', 'D11').", "nullable": false},
+    {"name": "DEPTNAME", "type": "VARCHAR(36)", "description": "Human-readable department name.", "nullable": false},
+    {"name": "MGRNO", "type": "CHAR(6)", "description": "Employee number of the department manager. Foreign key to EMPLOYEE.EMPNO.", "nullable": true},
+    {"name": "ADMRDEPT", "type": "CHAR(3)", "description": "Administering (parent) department. Self-referential foreign key to DEPARTMENT.DEPTNO — root departments point at themselves.", "nullable": false},
+    {"name": "LOCATION", "type": "CHAR(16)", "description": "Physical location of the department (often blank in the shipped sample data).", "nullable": true}
+  ]
+}

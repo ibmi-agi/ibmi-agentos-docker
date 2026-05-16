@@ -1,0 +1,30 @@
+{
+  "table_name": "PROJECT",
+  "schema": "SAMPLE",
+  "table_description": "Project master for the SAMPLE schema. One row per project with its name, the owning department, the responsible employee, planned staffing in person-months, planned start and end dates, and an optional parent project. Projects form a tree via the self-referential MAJPROJ column.",
+  "use_cases": [
+    "List projects owned by a given department",
+    "Look up the responsible employee for a project",
+    "Walk the project hierarchy via MAJPROJ (sub-projects under a major project)",
+    "Filter projects by planned timeframe (PRSTDATE, PRENDATE) — e.g. projects ending this year",
+    "Roll up planned staffing (PRSTAFF) by department or major project"
+  ],
+  "data_quality_notes": [
+    "PROJNO is CHAR(6); compare with string literals like 'AD3100', not integers.",
+    "DEPTNO is CHAR(3) and is the foreign key to DEPARTMENT.DEPTNO — both are strings.",
+    "RESPEMP is CHAR(6) matching EMPLOYEE.EMPNO and is NOT NULL — every project has a responsible employee.",
+    "MAJPROJ is self-referential: it points at another PROJECT.PROJNO. Top-level projects have MAJPROJ NULL.",
+    "PRSTAFF is DECIMAL(5,2) and may be NULL for projects whose staffing wasn't planned at the column-level.",
+    "PRSTDATE / PRENDATE are planned dates, not actuals — actual activity dates live in EMP_ACT.EMSTDATE / EMENDATE."
+  ],
+  "table_columns": [
+    {"name": "PROJNO", "type": "CHAR(6)", "description": "Project number, primary key (e.g. 'AD3100', 'MA2100').", "nullable": false},
+    {"name": "PROJNAME", "type": "VARCHAR(24)", "description": "Human-readable project name.", "nullable": false},
+    {"name": "DEPTNO", "type": "CHAR(3)", "description": "Owning department. Foreign key to DEPARTMENT.DEPTNO.", "nullable": false},
+    {"name": "RESPEMP", "type": "CHAR(6)", "description": "Employee responsible for the project. Foreign key to EMPLOYEE.EMPNO.", "nullable": false},
+    {"name": "PRSTAFF", "type": "DECIMAL(5,2)", "description": "Planned staffing in person-months.", "nullable": true},
+    {"name": "PRSTDATE", "type": "DATE", "description": "Planned start date.", "nullable": true},
+    {"name": "PRENDATE", "type": "DATE", "description": "Planned end date.", "nullable": true},
+    {"name": "MAJPROJ", "type": "CHAR(6)", "description": "Parent (major) project. Self-referential foreign key to PROJECT.PROJNO — top-level projects have this NULL.", "nullable": true}
+  ]
+}
