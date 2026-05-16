@@ -16,9 +16,7 @@ A starter for building IBM i agents on **Agno AgentOS**:
 
 ```
 agents/                IBM i agent modules + shared utilities
-  text2sql.py          Reference: built-in SQL tools, no toolset YAMLs
-  sql_service_guide.py Reference: multi-toolset (sysadmin_*) + core SQL
-  system_health.py     Reference: multi-toolset (performance, daily_health) + core SQL
+  ibmi_data_agent.py   The single shipped agent — Db2 for i SAMPLE library, sample_data toolset
   __init__.py          AGENT_DEFAULTS shared kwargs
   config.py            MCP_URL, SQL tool lists
   instructions/        Per-agent mission markdown
@@ -56,7 +54,7 @@ compose.auth.yaml      Overlay that flips on AUTH_ENABLED + MCP_AUTH_MODE=ibmi
 
 ### Adding an agent
 
-Use [`docs/create-new-agent.md`](docs/create-new-agent.md). Required structure: mirror one of the three reference agents, register the new id in `app/main.py`'s `agents=[...]` list, add quick prompts to `app/config.yaml`, restart the container.
+Use [`docs/create-new-agent.md`](docs/create-new-agent.md). Required structure: mirror the shipped `ibmi_data_agent.py`, register the new id in `app/main.py`'s `agents=[...]` list, add quick prompts to `app/config.yaml`, restart the container.
 
 ### Adding tools
 
@@ -93,20 +91,21 @@ Before committing, the following must be green:
 
 ```bash
 bash scripts/format.sh                        # ruff format
-bash scripts/validate.sh                      # ruff check + mypy
+bash scripts/validate.sh                      # ruff check + mypy + tool YAML schema validation
 uv run python -m evals -v                     # if evals/cases.py has assertions
 docker compose up -d && \
   curl -sSf http://localhost:8000/healthz     # the stack actually starts
 ```
 
-For forks: also run a brand-string scrub — see [`docs/review-and-improve.md`](docs/review-and-improve.md) §1. This template ships generic and should stay generic.
+This template ships generic and should stay generic.
 
 ### Don't add (deliberate cuts)
 
 - **No `app/registry.py` / `app/factory.py`** — explicit imports in `app/main.py` only
+- **One shipped agent, not a stable** — the template ships exactly one agent (`ibmi-data-agent`), wired to the Db2 for i `SAMPLE` library. Add your own agents alongside it via `docs/create-new-agent.md`; the template stays minimal so an extender always has a clean starting point.
 - **No `learning.learned_knowledge` store** wired by default — the shipped `ibmi_knowledge` (in `app/knowledge.py`) is curated content seeded from `knowledge/`, not extracted from chats. The `learning` module's separate `enable_learned_knowledge` flag stays off; flip it on with `get_learning(LearningConfig(enable_learned_knowledge=True), knowledge=ibmi_knowledge)` if you want extracted learnings to land in the same store
 - **No domain-specific learning schemas** — `learning/factory.py::LearningConfig` ships with generic Agno schemas; add your own (e.g. a `Db2InstanceFact` schema) by passing `entity_memory_schema=` to a per-agent `LearningConfig`
-- **No Leader/Analyst/Engineer three-role team** — the dash-style team pattern is left to user-built domain teams; the three reference agents are single-form
+- **No Leader/Analyst/Engineer three-role team** — the dash-style team pattern is left to user-built domain teams; the shipped agent is single-form
 - **No Slack / Discord / other interfaces in `app/main.py`** — add yours when needed (Agno ships an `agno[slack]` extra)
 - **No team-member deep-copy variants** — agents are single-form
 - **No upstream-fork brand strings or env-var prefixes** (any project name the template was derived from)
@@ -116,8 +115,8 @@ For forks: also run a brand-string scrub — see [`docs/review-and-improve.md`](
 | Want to | Do this |
 |---|---|
 | Add a new agent | Run `docs/create-new-agent.md` in Claude Code |
-| Add a new IBM i tool | Edit `tools/*.yaml` → run `parse_mcp_tools.py` → restart MCP server |
-| Add knowledge for the agents to search | Drop a file under `knowledge/{tables,queries,business}/` → run `scripts/load_knowledge.py` |
+| Add a new IBM i tool | Run `docs/write-new-tool.md` in Claude Code (explore → draft → YAML → validate → verify) |
+| Add knowledge for the agent to search | Run `docs/extend-knowledge.md`, or drop a file under `knowledge/{tables,queries,business}/` → run `scripts/load_knowledge.py` |
 | Change the embedder | Edit `EMBEDDING_PROVIDER`/`EMBEDDING_MODEL` in `.env`, run `scripts/load_knowledge.py --recreate` |
 | Change the model | Edit `DEFAULT_MODEL_ID` in `.env`, restart `agentos-api` |
 | Switch to multi-user auth | See `docs/auth-optional.md` |
@@ -130,18 +129,18 @@ For forks: also run a brand-string scrub — see [`docs/review-and-improve.md`](
 
 | File | Purpose |
 |---|---|
-| `docs/create-new-agent.md` | Two-phase walk: Phase 1 (decide on toolsets, build missing ones inline) → Phase 2 (scaffold agent, register, smoke-test) |
-| `docs/extend-agent.md` | Design & ship a `tools/*.yaml`: introspect IBM i → validate SQL → preview → author → regen → wire into agent |
-| `docs/improve-agent.md` | Probe-loop hardening from the agent's contract |
-| `docs/eval-and-improve.md` | Run `python -m evals`, diagnose failures, fix in scope |
-| `docs/review-and-improve.md` | Sweep for drift (stale `toolsets.json`, missing env vars, brand-scrub) |
+| `docs/write-new-tool.md` | The canonical tool-authoring loop: explore SAMPLE with the `ibmi` CLI → draft SQL → write the YAML → validate with `parse_mcp_tools.py` → verify live |
+| `docs/extend-knowledge.md` | Add a table or business rule to the SAMPLE KB |
+| `docs/create-new-agent.md` | Scaffold a new agent alongside the shipped IBM i Data Agent |
+| `docs/extend-agent.md` | Add tools to (or expand) an existing agent |
 
-Plus five reference docs:
+Plus reference docs:
 
 | File | Purpose |
 |---|---|
+| `docs/ibmi-cli.md` | The `ibmi` CLI workflow used throughout the template (install, env, sanity check) |
 | `docs/tool-design-reference.md` | YAML schema, parameter/security/annotations fields, worked examples, common-mistakes list, validation-error → fix map. Read before authoring any `tools/*.yaml` |
 | `docs/ibmi-mcp-server.md` | How `tools/*.yaml`, `parse_mcp_tools.py`, and the MCP server fit together |
 | `docs/knowledge-base.md` | How `knowledge/`, the embedder, and `scripts/load_knowledge.py` work |
 | `docs/auth-optional.md` | How to enable multi-user IBM i credentials |
-| `docs/cli-mode.md` | How to run without the MCP server (bundled `ibmi` CLI binary) |
+| `docs/cli-mode.md` | Runtime CLI mode — run without the MCP server (bundled `ibmi` CLI binary) |
