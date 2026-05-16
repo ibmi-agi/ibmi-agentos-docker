@@ -59,9 +59,7 @@ def mcp_header_provider(**kwargs: Any) -> dict[str, Any]:  # noqa: ARG001
     if token:
         logger.debug("header_provider: injecting Bearer token (%s...)", token[:20])
         return {"Authorization": f"Bearer {token}"}
-    logger.warning(
-        "header_provider: no MCP auth token in context — request will be unauthenticated"
-    )
+    logger.warning("header_provider: no MCP auth token in context — request will be unauthenticated")
     return {}
 
 
@@ -159,25 +157,19 @@ class MCPTokenManager:
     ) -> str:
         """Execute the full RSA-encrypted auth flow with the MCP server."""
         public_key_pem = await self._fetch_public_key(base_url)
-        encrypted_payload = self._encrypt_credentials(
-            public_key_pem, host, port, user, password
-        )
+        encrypted_payload = self._encrypt_credentials(public_key_pem, host, port, user, password)
 
         client = await self._get_client()
         resp = await client.post(f"{base_url}/api/v1/auth", json=encrypted_payload)
         if resp.status_code not in (200, 201):
             body = resp.text
             logger.error("MCP auth failed: status=%d body=%s", resp.status_code, body)
-            raise MCPAuthError(
-                f"MCP server auth failed with status {resp.status_code}: {body}"
-            )
+            raise MCPAuthError(f"MCP server auth failed with status {resp.status_code}: {body}")
 
         data = resp.json()
         token = data.get("token") or data.get("access_token")
         if not token:
-            raise MCPAuthError(
-                f"MCP auth response missing token field: {list(data.keys())}"
-            )
+            raise MCPAuthError(f"MCP auth response missing token field: {list(data.keys())}")
         return token
 
     async def _fetch_public_key(self, base_url: str) -> bytes:
@@ -188,16 +180,12 @@ class MCPTokenManager:
         client = await self._get_client()
         resp = await client.get(f"{base_url}/api/v1/auth/public-key")
         if resp.status_code != 200:
-            raise MCPAuthError(
-                f"Failed to fetch MCP public key: status {resp.status_code}"
-            )
+            raise MCPAuthError(f"Failed to fetch MCP public key: status {resp.status_code}")
 
         data = resp.json()
         pem = data.get("publicKey") or data.get("public_key") or data.get("key")
         if not pem:
-            raise MCPAuthError(
-                f"MCP public key response missing key field: {list(data.keys())}"
-            )
+            raise MCPAuthError(f"MCP public key response missing key field: {list(data.keys())}")
 
         key_pem: bytes = pem.encode() if isinstance(pem, str) else pem
         self._public_key_pem = key_pem

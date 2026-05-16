@@ -59,10 +59,7 @@ def require_inquiry_verb(command: str) -> PreflightError | None:
         return None
     return PreflightError(
         code=PREFLIGHT_READ_ONLY_VIOLATION,
-        message=(
-            "Read-only mode: CL command does not match inquiry verb "
-            "allowlist. Set read_only=False to override."
-        ),
+        message=("Read-only mode: CL command does not match inquiry verb allowlist. Set read_only=False to override."),
         details={"command": command},
     )
 
@@ -98,10 +95,7 @@ def require_absolute_path(value: str) -> PreflightError | None:
         return None
     return PreflightError(
         code=PREFLIGHT_PASE_RELATIVE_PATH,
-        message=(
-            "pase_command must be an absolute path — PASE has no "
-            "PATH set, so relative commands silently fail."
-        ),
+        message=("pase_command must be an absolute path — PASE has no PATH set, so relative commands silently fail."),
         details={
             "hint": (
                 "Use full paths like '/QOpenSys/pkgs/bin/yum "

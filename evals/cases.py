@@ -63,8 +63,7 @@ CASES: tuple[Case, ...] = (
         agent=text2sql_agent,
         input="Run `SELECT COUNT(*) FROM QSYS2.SYSTABLES`",
         criteria=(
-            "The response includes the row count from QSYS2.SYSTABLES. "
-            "The agent ran validate_query before execute_sql."
+            "The response includes the row count from QSYS2.SYSTABLES. The agent ran validate_query before execute_sql."
         ),
         expected_tool_calls=("validate_query", "execute_sql"),
     ),

@@ -46,19 +46,11 @@ class CreateConnectionRequest(BaseModel):
         max_length=255,
         description="Human-readable label (e.g., 'Production LPAR')",
     )
-    host: str = Field(
-        ..., min_length=1, max_length=255, description="IBM i hostname or IP"
-    )
+    host: str = Field(..., min_length=1, max_length=255, description="IBM i hostname or IP")
     port: int = Field(8076, ge=1, le=65535, description="Mapepire port")
-    user: str = Field(
-        ..., min_length=1, max_length=128, description="IBM i user profile"
-    )
-    password: str = Field(
-        ..., min_length=1, max_length=512, description="IBM i password"
-    )
-    is_default: bool = Field(
-        False, description="Set as the default connection for this API key"
-    )
+    user: str = Field(..., min_length=1, max_length=128, description="IBM i user profile")
+    password: str = Field(..., min_length=1, max_length=512, description="IBM i password")
+    is_default: bool = Field(False, description="Set as the default connection for this API key")
 
 
 class UpdateConnectionRequest(BaseModel):
@@ -215,9 +207,7 @@ async def delete_connection(connection_id: UUID, request: Request) -> None:
 
 
 @connections_router.put("/{connection_id}/default", response_model=ConnectionResponse)
-async def set_default_connection(
-    connection_id: UUID, request: Request
-) -> dict[str, Any]:
+async def set_default_connection(connection_id: UUID, request: Request) -> dict[str, Any]:
     """Set a connection as the default for the authenticated API key."""
     api_key_id = _get_api_key_id(request)
     svc = _get_conn_service()

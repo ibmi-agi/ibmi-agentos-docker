@@ -37,9 +37,7 @@ class AgentSpec:
 
 
 AGENTS: dict[str, AgentSpec] = {
-    "text2sql": AgentSpec(
-        "agents.text2sql", "text2sql_agent", "IBM i Text-to-SQL Agent"
-    ),
+    "text2sql": AgentSpec("agents.text2sql", "text2sql_agent", "IBM i Text-to-SQL Agent"),
     "sql-service-guide": AgentSpec(
         "agents.sql_service_guide",
         "sql_service_guide_agent",
@@ -56,9 +54,7 @@ DEFAULT_AGENT = "text2sql"
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Run IBM i agents interactively from the terminal."
-    )
+    parser = argparse.ArgumentParser(description="Run IBM i agents interactively from the terminal.")
     parser.add_argument(
         "-a",
         "--agent",
@@ -71,9 +67,7 @@ def parse_args() -> argparse.Namespace:
         "--prompt",
         help="Optional one-shot prompt. If set, runs once and exits.",
     )
-    parser.add_argument(
-        "--list", action="store_true", help="List available agents and exit."
-    )
+    parser.add_argument("--list", action="store_true", help="List available agents and exit.")
     return parser.parse_args()
 
 
@@ -116,9 +110,7 @@ async def run_repl(start_agent_key: str) -> None:
 
     while True:
         try:
-            prompt = await loop.run_in_executor(
-                None, lambda: input(f"[{active_key}] > ").strip()
-            )
+            prompt = await loop.run_in_executor(None, lambda: input(f"[{active_key}] > ").strip())
         except (EOFError, KeyboardInterrupt):
             print("\nExiting.")
             break

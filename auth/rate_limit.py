@@ -32,9 +32,7 @@ class RateLimiter:
     within the configured window.
     """
 
-    def __init__(
-        self, max_requests: int | None = None, window_seconds: int | None = None
-    ) -> None:
+    def __init__(self, max_requests: int | None = None, window_seconds: int | None = None) -> None:
         default_max, default_window = _parse_limit()
         self.max_requests = max_requests or default_max
         self.window_seconds = window_seconds or default_window

@@ -189,9 +189,7 @@ def test_list_tools_no_discovery_source(toolkit: IBMiCLITools) -> None:
 
 
 def test_list_tools_ambiguous_sources(toolkit: IBMiCLITools) -> None:
-    env = toolkit.list_tools(
-        tool_path="tools/performance.yaml", toolsets=["performance"]
-    )
+    env = toolkit.list_tools(tool_path="tools/performance.yaml", toolsets=["performance"])
 
     assert env["ok"] is False
     assert env["error"]["code"] == PREFLIGHT_AMBIGUOUS_DISCOVERY
@@ -677,18 +675,14 @@ def test_resolve_scope_dependencies_override_instance(
         {
             "ibmi_toolsets": ["daily_health"],
             "ibmi_extra_tools": ["my_custom"],
-            "ibmi_extra_inventory": [
-                {"name": "my_custom", "description": "custom", "parameters": []}
-            ],
+            "ibmi_extra_inventory": [{"name": "my_custom", "description": "custom", "parameters": []}],
         }
     )
     toolsets, allowed, inventory = scoped_toolkit._resolve_scope(ctx)
 
     assert toolsets == ("daily_health",)
     assert "my_custom" in allowed
-    assert inventory == (
-        {"name": "my_custom", "description": "custom", "parameters": []},
-    )
+    assert inventory == ({"name": "my_custom", "description": "custom", "parameters": []},)
 
 
 def test_resolve_scope_extras_only(toolkit: IBMiCLITools) -> None:
@@ -807,8 +801,7 @@ def _record_runs(
             return next(iterator)
         except StopIteration as exc:
             raise AssertionError(
-                f"subprocess.run called {len(captured)} times; "
-                f"only {len(responses)} responses queued"
+                f"subprocess.run called {len(captured)} times; only {len(responses)} responses queued"
             ) from exc
 
     monkeypatch.setattr(subprocess, "run", _fake_run)
@@ -1076,9 +1069,7 @@ def test_enable_yaml_tools_false_hides_yaml_surface() -> None:
     tk = IBMiCLITools(enable_yaml_tools=False)
 
     for name in ("describe_tool", "run_tool", "list_tools"):
-        assert name not in tk.functions, (
-            f"{name} should be hidden when enable_yaml_tools=False"
-        )
+        assert name not in tk.functions, f"{name} should be hidden when enable_yaml_tools=False"
 
     # Core SQL/CL surface is unaffected.
     assert "validate_and_run_sql" in tk.functions
