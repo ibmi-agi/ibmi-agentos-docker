@@ -149,9 +149,7 @@ FORMATTING = """\
 """
 
 
-def build_instructions(
-    *sections: str, agent_id: str = "", custom_sections: str = ""
-) -> str:
+def build_instructions(*sections: str, agent_id: str = "", custom_sections: str = "") -> str:
     """Compose agent instructions from shared blocks and (optional) per-agent markdown.
 
     Args:

@@ -153,9 +153,7 @@ def cmd_create(args: argparse.Namespace) -> None:
         console.print_json(json.dumps(data, default=str))
         return
 
-    default_label = (
-        " [bold green](default)[/bold green]" if data.get("is_default") else ""
-    )
+    default_label = " [bold green](default)[/bold green]" if data.get("is_default") else ""
     console.print(
         Panel(
             f"[bold cyan]{data['name']}[/bold cyan] — {data['host']}:{data.get('port', 8076)}{default_label}",
@@ -184,9 +182,7 @@ def cmd_get(args: argparse.Namespace) -> None:
     active = "[green]active[/green]" if data.get("is_active") else "[red]inactive[/red]"
     console.print(f"  [dim]ID:[/dim]             {data['id']}")
     console.print(f"  [dim]Name:[/dim]           {data['name']}")
-    console.print(
-        f"  [dim]Host:[/dim]           {data['host']}:{data.get('port', 8076)}"
-    )
+    console.print(f"  [dim]Host:[/dim]           {data['host']}:{data.get('port', 8076)}")
     console.print(f"  [dim]User:[/dim]           {data.get('ibmi_user', '***')}")
     console.print(f"  [dim]Default:[/dim]        {default}")
     console.print(f"  [dim]Status:[/dim]         {active}")
@@ -208,13 +204,9 @@ def cmd_test(args: argparse.Namespace) -> None:
         return
 
     if data.get("success"):
-        console.print(
-            f"[bold green]OK[/bold green] — {data.get('message', 'Connection successful')}"
-        )
+        console.print(f"[bold green]OK[/bold green] — {data.get('message', 'Connection successful')}")
     else:
-        console.print(
-            f"[bold red]FAILED[/bold red] — {data.get('message', 'Unknown error')}"
-        )
+        console.print(f"[bold red]FAILED[/bold red] — {data.get('message', 'Unknown error')}")
         sys.exit(1)
 
 
@@ -287,9 +279,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("list", aliases=["ls"], help="List all connections")
 
     # create
-    p_create = sub.add_parser(
-        "create", aliases=["new"], help="Register a new connection"
-    )
+    p_create = sub.add_parser("create", aliases=["new"], help="Register a new connection")
     p_create.add_argument(
         "--name",
         "-n",
@@ -298,15 +288,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_create.add_argument("--host", "-H", required=True, help="IBM i hostname or IP")
     p_create.add_argument("--user", "-u", required=True, help="IBM i user profile")
-    p_create.add_argument(
-        "--password", "-p", default=None, help="IBM i password (prompts if omitted)"
-    )
-    p_create.add_argument(
-        "--port", type=int, default=8076, help="Mapepire port (default: 8076)"
-    )
-    p_create.add_argument(
-        "--default", action="store_true", help="Set as the default connection"
-    )
+    p_create.add_argument("--password", "-p", default=None, help="IBM i password (prompts if omitted)")
+    p_create.add_argument("--port", type=int, default=8076, help="Mapepire port (default: 8076)")
+    p_create.add_argument("--default", action="store_true", help="Set as the default connection")
 
     # get
     p_get = sub.add_parser("get", help="Get connection details")

@@ -37,12 +37,8 @@ class CreateKeyRequest(BaseModel):
         max_length=255,
         description="Human-readable label for the key",
     )
-    scopes: list[str] | None = Field(
-        None, description="Permission scopes (defaults to agent/team/workflow run)"
-    )
-    expires_at: datetime | None = Field(
-        None, description="Optional expiration timestamp (UTC)"
-    )
+    scopes: list[str] | None = Field(None, description="Permission scopes (defaults to agent/team/workflow run)")
+    expires_at: datetime | None = Field(None, description="Optional expiration timestamp (UTC)")
 
 
 class MeResponse(BaseModel):
@@ -70,9 +66,7 @@ class KeyResponse(BaseModel):
 
 
 class CreateKeyResponse(KeyResponse):
-    key: str = Field(
-        ..., description="The API key — shown once, never stored. Save it now."
-    )
+    key: str = Field(..., description="The API key — shown once, never stored. Save it now.")
 
 
 # ---------------------------------------------------------------------------
@@ -162,9 +156,7 @@ async def revoke_key(
         raise HTTPException(status_code=404, detail="Key not found or already revoked")
 
 
-@auth_router.post(
-    "/keys/{key_id}/rotate", response_model=CreateKeyResponse, status_code=201
-)
+@auth_router.post("/keys/{key_id}/rotate", response_model=CreateKeyResponse, status_code=201)
 async def rotate_key(
     key_id: UUID,
     request: Request,

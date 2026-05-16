@@ -138,9 +138,7 @@ class IBMiCLITools(Toolkit):
                 allowed.update(get_toolsets(*self.toolsets))
             except KeyError as exc:
                 bad = exc.args[0] if exc.args else "?"
-                raise ValueError(
-                    f"Unknown toolset: {bad!r}. Available: {sorted(list_toolsets())}"
-                ) from exc
+                raise ValueError(f"Unknown toolset: {bad!r}. Available: {sorted(list_toolsets())}") from exc
         self.allowed_tools: frozenset[str] = frozenset(allowed)
         # PASE shell execution — opt-in because ``sample.pase_call`` can
         # install packages, modify IFS, start/stop services, and run
@@ -230,10 +228,7 @@ class IBMiCLITools(Toolkit):
             if isinstance(candidate, dict):
                 deps = candidate
 
-        has_ibmi_dep = any(
-            key in deps
-            for key in ("ibmi_toolsets", "ibmi_extra_tools", "ibmi_extra_inventory")
-        )
+        has_ibmi_dep = any(key in deps for key in ("ibmi_toolsets", "ibmi_extra_tools", "ibmi_extra_inventory"))
         if not has_ibmi_dep:
             return self.toolsets, self.allowed_tools, ()
 
@@ -241,12 +236,8 @@ class IBMiCLITools(Toolkit):
         raw_extras = deps.get("ibmi_extra_tools") or []
         raw_inventory = deps.get("ibmi_extra_inventory") or []
 
-        toolsets: tuple[str, ...] = tuple(
-            str(t) for t in raw_toolsets if isinstance(t, str)
-        )
-        inventory_entries: list[dict[str, Any]] = [
-            dict(e) for e in raw_inventory if isinstance(e, dict)
-        ]
+        toolsets: tuple[str, ...] = tuple(str(t) for t in raw_toolsets if isinstance(t, str))
+        inventory_entries: list[dict[str, Any]] = [dict(e) for e in raw_inventory if isinstance(e, dict)]
         extras: list[str] = [str(n) for n in raw_extras if isinstance(n, str)]
         # Inventory entries implicitly extend the flat extras list so
         # the scope gate and the inventory stay in sync.
@@ -574,9 +565,7 @@ class IBMiCLITools(Toolkit):
             Envelope with the list of tables on success or a canonical
             error on failure.
         """
-        return self._dispatch(
-            CommandSpec(tool_name="list_tables", argv=("tables", schema))
-        )
+        return self._dispatch(CommandSpec(tool_name="list_tables", argv=("tables", schema)))
 
     def list_columns(self, schema: str, table: str) -> Envelope:
         """List columns for a table.
@@ -817,10 +806,7 @@ class IBMiCLITools(Toolkit):
 
         return PreflightError(
             code=PREFLIGHT_NO_DISCOVERY_SOURCE,
-            message=(
-                "list_tools requires tool_path or toolsets "
-                "(or an instance-level scope)."
-            ),
+            message=("list_tools requires tool_path or toolsets (or an instance-level scope)."),
         ).to_envelope(
             "list_tools",
             elapsed_ms=(time.monotonic() - start) * 1000,

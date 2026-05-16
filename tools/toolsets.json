@@ -1,264 +1,193 @@
 {
-  "daily_health": {
+  "sample_data": {
     "tools": [
-      "joblog_info",
-      "system_value_lookup"
+      "list_sample_tables",
+      "describe_sample_table",
+      "list_sample_relationships",
+      "get_employee_details",
+      "find_employees_by_department",
+      "find_employees_by_job",
+      "get_employee_projects",
+      "get_department_salary_stats",
+      "find_project_team_members",
+      "calculate_employee_bonus",
+      "search_employees"
     ],
-    "source": "daily-health.yaml",
-    "title": "Daily Health Check Tools",
-    "description": "Job log and system value tools for daily IBM i health monitoring. Use with 'performance' toolset for complete coverage.",
+    "source": "sample.yaml",
+    "title": "SAMPLE Data",
+    "description": "Schema discovery + employee data for the Db2 for i SAMPLE library",
     "tool_metadata": {
-      "joblog_info": {
-        "description": "Troubleshoot job errors by retrieving job log messages. Returns\nmessage ID, type, severity, text, second-level text, and the\noriginating program/module/procedure. Use job_name '*' for the\ncurrent job; otherwise pass a qualified name (number/user/name).\nFilter by message_type_filter: 'ESCAPE' for errors, 'DIAGNOSTIC'\nfor warnings, 'COMPLETION' for success confirmations. Use after\njob_info to investigate why a specific job failed or is stuck.\n",
+      "list_sample_tables": {
+        "description": "List all tables, views, and physical files in the SAMPLE library\nwith their text descriptions and object types. Use this first when\nyou need to know which objects are available in SAMPLE before\nwriting a query.\n"
+      },
+      "describe_sample_table": {
+        "description": "Describe the columns of a table in the SAMPLE library: name, data\ntype, length, numeric scale, nullability, column text, and ordinal\nposition. Pass the unqualified table name (e.g., 'EMPLOYEE'). Use\nthis before writing any column-referencing SQL against a SAMPLE\ntable.\n",
         "parameters": [
           {
-            "name": "job_name",
+            "name": "table_name",
             "type": "string",
-            "description": "Qualified job name (e.g., '123456/MYUSER/MYJOB') or '*' for the current job",
-            "required": true
-          },
-          {
-            "name": "message_type_filter",
-            "type": "string",
-            "description": "Filter by message type: 'DIAGNOSTIC', 'ESCAPE', 'INFORMATIONAL', 'COMPLETION', 'NOTIFY', 'REQUEST', 'SENDER', or '*ALL'",
-            "default": "*ALL"
-          },
-          {
-            "name": "row_limit",
-            "type": "integer",
-            "description": "Maximum number of messages to return (1-200)",
-            "default": 50
-          }
-        ]
-      },
-      "system_value_lookup": {
-        "description": "Find system configuration values by name pattern using LIKE\nsyntax (use % as wildcard). Returns both numeric and character\nvalues \u2014 unlike system_values in the performance toolset which\nreturns only numeric values for all settings, this tool searches\nby pattern for targeted lookup. Useful patterns: '%SEC%' for\nsecurity, '%LOG%' for logging, '%LMT%' for limits, '%AUD%'\nfor auditing. Use when investigating a specific config area\nrather than reviewing all settings.\n",
-        "parameters": [
-          {
-            "name": "name_pattern",
-            "type": "string",
-            "description": "Pattern to match system value names (e.g., '%LMT%', '%SEC%', 'QCCSID', '%AUD%')",
-            "required": true
-          }
-        ]
-      }
-    }
-  },
-  "performance": {
-    "tools": [
-      "system_status",
-      "system_activity",
-      "remote_connections",
-      "memory_pools",
-      "temp_storage_buckets",
-      "unnamed_temp_storage",
-      "http_server",
-      "system_values",
-      "collection_services",
-      "collection_categories",
-      "active_job_info"
-    ],
-    "source": "performance.yaml",
-    "tool_metadata": {
-      "system_status": {
-        "description": "First-call system health check. Returns CPU utilization (total,\ninteractive, batch, database), main storage size and usage, system\nASP capacity, active job counts, and temporary storage consumption.\nUse as the starting point before drilling into memory_pools or\nactive_job_info for specifics. See also: system_activity for\nreal-time per-pool breakdowns.\n",
-        "parameters": []
-      },
-      "system_activity": {
-        "description": "Real-time per-pool CPU utilization, database faulting, and active\nthread counts. Unlike system_status (which gives overall\nsystem-level metrics), this shows activity broken down by memory\npool for identifying which pool is under pressure right now.\nSee also: memory_pools for pool sizing and configuration.\n",
-        "parameters": []
-      },
-      "remote_connections": {
-        "description": "Count of established TCP connections from remote clients, excluding\nloopback (127.0.0.1 and ::1). Use to gauge how many external\nsessions (ODBC, SSH, FTP, HTTP) are active on the system. A sudden\nspike can indicate runaway connection pooling or unauthorized\naccess.\n",
-        "parameters": []
-      },
-      "memory_pools": {
-        "description": "Memory pool sizing, thread utilization, and faulting rates for\neach pool (*MACHINE, *BASE, *INTERACT, *SPOOL, and user-defined\npools). Returns current/defined/reserved size, max active threads,\nand current thread count. Use after system_status to drill into\npool-level memory pressure. See also: system_activity for\nreal-time per-pool CPU and faulting.\n",
-        "parameters": []
-      },
-      "temp_storage_buckets": {
-        "description": "Named temporary storage bucket usage (current and peak sizes).\nTemporary storage on IBM i is auxiliary storage used by jobs for\ninternal objects like open data paths and SQL cursors. High temp\nstorage often indicates runaway queries or jobs that are not\nreleasing resources. See also: unnamed_temp_storage for the\naggregate of unnamed buckets.\n",
-        "parameters": []
-      },
-      "unnamed_temp_storage": {
-        "description": "Aggregate current and peak size of unnamed temporary storage\nbuckets. Unnamed buckets are internal system allocations not tied\nto a named category. Large unnamed temp storage usage can signal\nsystem-level issues that are harder to trace to individual jobs.\nSee also: temp_storage_buckets for a breakdown by named category.\n",
-        "parameters": []
-      },
-      "http_server": {
-        "description": "Performance metrics for all HTTP server instances running on IBM i\n(Apache, IWS, etc.). Returns connections (normal and SSL),\nactive/idle threads, total requests, rejected requests, bytes\nsent/received, and cache vs non-cache processing times. IBM i HTTP\nservers power web services, REST APIs, and admin consoles.\n",
-        "parameters": []
-      },
-      "system_values": {
-        "description": "All system values (QSYS2.SYSTEM_VALUE_INFO) that have a numeric\nvalue, including performance-relevant settings like QMAXACTLVL\n(max active jobs), QBASACTLVL (base pool activity level), QMCHPOOL\n(machine pool size), and QTOTJOB (total jobs). Use to verify\nperformance-related system configuration. Returns name/value pairs\nonly for values with non-null numeric data.\n",
-        "parameters": []
-      },
-      "collection_services": {
-        "description": "Current configuration of IBM i Collection Services, the built-in\nperformance data collection framework. Returns collection status,\ninterval, retention period, library, and active categories. Use to\nverify that performance data collection is enabled and properly\nconfigured before analyzing historical trends. See also:\ncollection_categories for per-category interval detail.\n",
-        "parameters": []
-      },
-      "collection_categories": {
-        "description": "Per-category collection intervals for Collection Services. Shows\nwhich data categories (e.g., *SYSLVL, *JOBMI, *POOL, *DISK, *IOP)\nare being collected and at what interval. Use to verify granularity\nof performance data collection or to check if a specific category\nis active. See also: collection_services for overall Collection\nServices status.\n",
-        "parameters": []
-      },
-      "active_job_info": {
-        "description": "Rank active jobs by CPU consumption to find the heaviest consumers.\nDefaults to QUSRWRK and QSYSWRK subsystems (where most user work\nand system server jobs run). Returns CPU time, job name, user,\nfunction, type, status, and more. Use after system_status shows\nhigh CPU to identify which specific jobs are responsible.\n",
-        "parameters": [
-          {
-            "name": "limit",
-            "type": "integer",
-            "default": 10,
-            "description": "Number of top CPU consumers to return"
-          }
-        ]
-      }
-    }
-  },
-  "sysadmin_discovery": {
-    "tools": [
-      "list_service_categories",
-      "count_services_by_schema",
-      "count_services_by_sql_object_type",
-      "list_categories_for_schema"
-    ],
-    "source": "sys-admin.yaml",
-    "title": "Sys Admin Discovery",
-    "description": "High-level summaries and counts for services.",
-    "tool_metadata": {
-      "list_service_categories": {
-        "description": "Summarize all SQL Service categories with service counts.\nStarting point for exploring available IBM i services. Returns\ncategory name and count, sorted by highest count. Use before\nlist_services_by_category to pick a category to drill into.\n"
-      },
-      "count_services_by_schema": {
-        "description": "Count SQL Services by schema (library) to see which system\nlibraries provide services. QSYS2 and SYSTOOLS are the primary\nproviders. Use to discover which schema to explore further\nwith list_services_by_schema.\n"
-      },
-      "count_services_by_sql_object_type": {
-        "description": "Categorize services by SQL object type (VIEW, PROCEDURE,\nTABLE FUNCTION, SCALAR FUNCTION, TABLE). TABLE FUNCTIONs\nare the most common high-value services (ACTIVE_JOB_INFO,\nOBJECT_STATISTICS, etc.). VIEWs are simpler read-only queries.\nUse to understand the implementation landscape of available\nservices.\n"
-      },
-      "list_categories_for_schema": {
-        "description": "Show which service categories exist within a specific schema.\nUse to explore a single schema's capabilities (e.g., 'What\ntroubleshooting services does QSYS2 provide?'). Complement to\nlist_service_categories which shows categories across all\nschemas.\n",
-        "parameters": [
-          {
-            "name": "schema_name",
-            "type": "string",
-            "description": "Schema name to summarize (e.g., QSYS2).",
-            "required": true
-          }
-        ]
-      }
-    }
-  },
-  "sysadmin_browse": {
-    "tools": [
-      "list_services_by_category",
-      "list_services_by_schema",
-      "list_services_by_sql_object_type"
-    ],
-    "source": "sys-admin.yaml",
-    "title": "Sys Admin Browse",
-    "description": "Explore services by category, schema, and SQL object type; validate metadata.",
-    "tool_metadata": {
-      "list_services_by_category": {
-        "description": "Browse all services within a specific category (e.g., Work\nManagement, Security, Performance). Returns schema, name,\nSQL object type, and release info. Unlike search_services_by_name\n(keyword search), this is category-based exploration. Category\nmust be an exact match from list_service_categories \u2014 use that\ntool first to get valid category names.\n",
-        "parameters": [
-          {
-            "name": "category",
-            "type": "string",
-            "description": "Exact value of SERVICE_CATEGORY to filter by.",
-            "required": true
-          }
-        ]
-      },
-      "list_services_by_schema": {
-        "description": "Explore all services provided by a specific schema (library).\nReturns category, name, SQL object type, and release info.\nUnlike list_services_by_category (category-based), this groups\nby schema \u2014 useful for answering \"What can I do with QSYS2?\"\nMost services live in QSYS2; SYSTOOLS has utility functions.\n",
-        "parameters": [
-          {
-            "name": "schema_name",
-            "type": "string",
-            "description": "Schema name (library), e.g., QSYS2 or SYSTOOLS.",
+            "description": "Unqualified table name in the SAMPLE library (e.g., 'EMPLOYEE')",
             "required": true,
-            "minLength": 1
+            "pattern": "^[A-Z_][A-Z0-9_]*$"
           }
         ]
       },
-      "list_services_by_sql_object_type": {
-        "description": "Find services by SQL implementation type (VIEW, PROCEDURE,\nTABLE FUNCTION, SCALAR FUNCTION, TABLE). TABLE FUNCTIONs are\nthe most useful for querying (parameterized, tabular output).\nSCALAR FUNCTIONs are typically helpers used inside other\nqueries. Use to find all services of a specific type.\n",
+      "list_sample_relationships": {
+        "description": "List foreign-key relationships defined in the SAMPLE library:\nconstraint name, child table/column, referenced parent table/column,\nand the delete/update rules. Use this to understand how SAMPLE\ntables join before writing multi-table queries.\n"
+      },
+      "get_employee_details": {
+        "description": "Retrieve detailed information about an employee including department and manager",
         "parameters": [
           {
-            "name": "sql_object_type",
+            "name": "employee_id",
             "type": "string",
-            "description": "SQL object type to filter by.",
+            "description": "Employee ID (e.g., '000010') - Must be 6 digits",
+            "required": true,
+            "pattern": "^[0-9]{6}$"
+          }
+        ]
+      },
+      "find_employees_by_department": {
+        "description": "List employees in a specific department",
+        "parameters": [
+          {
+            "name": "department_id",
+            "type": "string",
+            "description": "Department ID - Select from predefined departments",
             "required": true,
             "enum": [
-              "VIEW",
-              "PROCEDURE",
-              "SCALAR FUNCTION",
-              "TABLE FUNCTION",
-              "TABLE"
+              "A00",
+              "B01",
+              "C01",
+              "D01",
+              "E01"
             ]
           }
         ]
-      }
-    }
-  },
-  "sysadmin_search": {
-    "tools": [
-      "search_services_by_name",
-      "where_is_service",
-      "search_examples_for_keyword",
-      "get_service_example"
-    ],
-    "source": "sys-admin.yaml",
-    "title": "Sys Admin Search",
-    "description": "Search capabilities for service names and example usage.",
-    "tool_metadata": {
-      "search_services_by_name": {
-        "description": "Find SQL Services by keyword in the service name. Uses\ncase-insensitive LIKE '%keyword%' matching \u2014 partial names\nwork (e.g., 'JOB' finds ACTIVE_JOB_INFO, JOB_INFO, etc.).\nUnlike where_is_service (exact name lookup), this is for\ndiscovery when you don't know the full name. Use first to\nfind candidates, then get_service_example for usage details.\n",
+      },
+      "find_employees_by_job": {
+        "description": "Find employees with a specific job title",
         "parameters": [
           {
-            "name": "name_contains",
+            "name": "job_title",
             "type": "string",
-            "description": "Substring to search for in SERVICE_NAME.",
+            "description": "Job title - Select from common job titles",
             "required": true,
-            "minLength": 2
+            "enum": [
+              "MANAGER",
+              "ANALYST",
+              "DESIGNER",
+              "CLERK",
+              "SALESREP",
+              "PRES"
+            ]
           }
         ]
       },
-      "where_is_service": {
-        "description": "Locate a specific SQL Service by exact name and return its\nschema, category, SQL object type, and release info. Unlike\nsearch_services_by_name (partial keyword match), this requires\nthe exact service name but is case-insensitive. Use when you\nknow the service name and need to find which schema provides\nit and its object type.\n",
+      "get_employee_projects": {
+        "description": "List projects an employee is working on",
         "parameters": [
           {
-            "name": "service_name",
+            "name": "employee_id",
             "type": "string",
-            "description": "Exact SERVICE_NAME to locate.",
-            "required": true
-          }
-        ]
-      },
-      "search_examples_for_keyword": {
-        "description": "Find services whose example SQL contains a keyword or phrase.\nCase-insensitive search across all service examples. Returns\nonly the first 300 characters of each example \u2014 use\nget_service_example for the full text. Useful for finding\nlearning examples (e.g., search 'AUTHORITY' to find services\nwith security-related example SQL).\n",
-        "parameters": [
-          {
-            "name": "keyword",
-            "type": "string",
-            "description": "Keyword or phrase to search for within EXAMPLE text.",
+            "description": "Employee ID (e.g., '000010') - Must be 6 digits",
             "required": true,
-            "minLength": 2
-          }
-        ]
-      },
-      "get_service_example": {
-        "description": "Get the complete example SQL for a specific service. Unlike\nsearch_examples_for_keyword (which returns 300-char snippets),\nthis returns the full example text. Some services have no\nexample \u2014 result will be NULL. Requires exact schema and\nservice name; use search_services_by_name first if unsure of\nthe exact name.\n",
-        "parameters": [
-          {
-            "name": "schema_name",
-            "type": "string",
-            "description": "Schema name containing the service (e.g., QSYS2).",
-            "required": true
+            "pattern": "^[0-9]{6}$"
           },
           {
-            "name": "service_name",
+            "name": "include_completed",
+            "type": "boolean",
+            "description": "Include completed projects (true) or only active projects (false)",
+            "default": true
+          }
+        ]
+      },
+      "get_department_salary_stats": {
+        "description": "Salary statistics by department with optional salary range filter",
+        "parameters": [
+          {
+            "name": "department_id",
             "type": "string",
-            "description": "Exact SERVICE_NAME (case-insensitive match used).",
-            "required": true
+            "description": "Department ID (e.g., 'A00') or '*ALL' for all departments",
+            "default": "*ALL"
+          },
+          {
+            "name": "min_salary",
+            "type": "integer",
+            "description": "Minimum salary filter (optional)",
+            "min": 0,
+            "max": 100000,
+            "default": 0
+          },
+          {
+            "name": "max_salary",
+            "type": "integer",
+            "description": "Maximum salary filter (optional)",
+            "min": 0,
+            "max": 100000,
+            "default": 100000
+          }
+        ]
+      },
+      "find_project_team_members": {
+        "description": "Find all employees working on specific projects. Accepts a JSON array of project IDs.",
+        "parameters": [
+          {
+            "name": "project_ids",
+            "type": "array",
+            "itemType": "string",
+            "description": "Array of project IDs to search for. Must be a JSON array, not a string. Example: [\"MA2100\", \"AD3100\", \"AD3110\"]",
+            "required": true,
+            "minLength": 1,
+            "maxLength": 10
+          }
+        ]
+      },
+      "calculate_employee_bonus": {
+        "description": "Calculate potential bonus for an employee based on performance rating and salary",
+        "parameters": [
+          {
+            "name": "employee_id",
+            "type": "string",
+            "description": "Employee ID (e.g., '000010')",
+            "required": true,
+            "pattern": "^[0-9]{6}$"
+          },
+          {
+            "name": "performance_multiplier",
+            "type": "float",
+            "description": "Performance rating multiplier (0.0-0.3)",
+            "required": true,
+            "min": 0.0,
+            "max": 0.3,
+            "default": 0.1
+          }
+        ]
+      },
+      "search_employees": {
+        "description": "Search for employees by name with pagination",
+        "parameters": [
+          {
+            "name": "name_search",
+            "type": "string",
+            "description": "Name to search for (partial match)",
+            "required": true,
+            "minLength": 2
+          },
+          {
+            "name": "page_size",
+            "type": "integer",
+            "description": "Number of results per page",
+            "default": 10,
+            "min": 1,
+            "max": 100
+          },
+          {
+            "name": "page_number",
+            "type": "integer",
+            "description": "Page number (starting from 1)",
+            "default": 1,
+            "min": 1
           }
         ]
       }
