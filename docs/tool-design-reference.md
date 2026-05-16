@@ -17,11 +17,11 @@ The authoritative schema is `tools/sql-tools-config.schema.json`. Schema is `add
 
 ### Sources
 
-One source per repo. The template's default is `ibmi-system`, parameterized from env vars. Every tool references this source.
+One source per repo. The template's default is `ibmi-sample`, parameterized from env vars. Every tool references this source.
 
 ```yaml
 sources:
-  ibmi-system:
+  ibmi-sample:
     host: ${DB2i_HOST}
     user: ${DB2i_USER}
     password: ${DB2i_PASS}
@@ -29,7 +29,7 @@ sources:
     ignore-unauthorized: true   # accept self-signed certs
 ```
 
-You usually don't redefine `sources:` in new YAMLs — declare it once (e.g. in `daily-health.yaml`) and reference it from elsewhere. Some files (e.g. `sys-admin.yaml`) leave `sources:` commented out and rely on it being declared in a sibling file.
+You usually don't redefine `sources:` in new YAMLs — declare it once (in `tools/sample.yaml`) and reference it from any additional `tools/*.yaml` files by name.
 
 ## 2. Tool fields
 
@@ -74,9 +74,9 @@ Worked example:
 
 ```yaml
 parameters:
-  - name: job_name
+  - name: workdept
     type: string
-    description: "Qualified job name (e.g., '123456/MYUSER/MYJOB') or '*' for the current job"
+    description: "3-character department code (e.g. 'A00') from SAMPLE.DEPARTMENT"
     required: true
   - name: row_limit
     type: integer
@@ -109,33 +109,34 @@ annotations:
   idempotentHint: true        # same input → same output
   destructiveHint: false      # pair with readOnly: false when true
   openWorldHint: false        # talks to external/unpredictable systems
-  domain: "operations"        # client-side filtering
-  category: "daily_health"    # client-side filtering
-  toolsets: ["daily_health"]  # optional explicit toolset list
+  domain: "sample"            # client-side filtering
+  category: "employees"       # client-side filtering
+  toolsets: ["sample_data"]   # optional explicit toolset list
 ```
 
 Convention in this template: SELECT-only tools always set `readOnlyHint: true` and `idempotentHint: true`.
 
 ## 5. Toolsets
 
-Toolsets group tools so agents can grab them as a unit (`ibmi_tools(["daily_health"])`).
+Toolsets group tools so agents can grab them as a unit (`ibmi_tools(["sample_data"])`).
 
 ```yaml
 toolsets:
-  daily_health:
-    title: "Daily Health Check Tools"
-    description: "Job log and system value tools for daily IBM i health monitoring."
+  sample_data:
+    title: "SAMPLE Data"
+    description: "Schema discovery + employee data for the Db2 for i SAMPLE library."
     tools:
-      - joblog_info
-      - system_value_lookup
+      - list_sample_tables
+      - describe_sample_table
+      - list_employees_by_department
 ```
 
 Required: `tools:` (non-empty list). A tool can belong to multiple toolsets — just list it in each.
 
 Conventions:
-- **One toolset per file.** `tools/<toolset>.yaml`. Mirrors the in-repo examples.
-- **Keep toolsets cohesive.** A toolset is a *workflow* — "daily health check", "service discovery". Not a category dump.
-- **Names are kebab/snake_case.** File: `daily-health.yaml`. Toolset key: `daily_health`. Pick one; we use snake for the key, kebab for the filename.
+- **One toolset per file.** `tools/<toolset>.yaml`. Mirrors the in-repo example (`tools/sample.yaml`).
+- **Keep toolsets cohesive.** A toolset is a *workflow* — "SAMPLE data", "security audit". Not a category dump.
+- **Names are kebab/snake_case.** File: `sample.yaml` or `daily-health.yaml`. Toolset key: `sample_data` or `daily_health`. Pick one; we use snake for the key, kebab for the filename.
 - **Don't over-group.** If three tools serve very different intents, split into two toolsets.
 
 ## 6. Worked examples
@@ -144,83 +145,75 @@ Conventions:
 
 ```yaml
 tools:
-  system_value_lookup:
-    source: ibmi-system
+  list_employees_by_department:
+    source: ibmi-sample
     description: |
-      Find system configuration values by name pattern using LIKE
-      syntax (use % as wildcard). Returns numeric and character values.
-      Useful patterns: '%SEC%' for security, '%LOG%' for logging.
+      List employees in a specific department. Returns employee
+      number, first name, last name, and salary. Use this when the
+      user asks about a department by its 3-character code (e.g. 'A00').
     statement: |
-      SELECT SYSTEM_VALUE_NAME,
-             CURRENT_NUMERIC_VALUE,
-             CURRENT_CHARACTER_VALUE
-      FROM QSYS2.SYSTEM_VALUE_INFO
-      WHERE UPPER(SYSTEM_VALUE_NAME) LIKE UPPER(:name_pattern)
-      ORDER BY SYSTEM_VALUE_NAME
-      FETCH FIRST 100 ROWS ONLY
+      SELECT EMPNO, FIRSTNME, LASTNAME, SALARY
+      FROM SAMPLE.EMPLOYEE
+      WHERE WORKDEPT = :workdept
+      ORDER BY EMPNO
+      FETCH FIRST :row_limit ROWS ONLY
     parameters:
-      - name: name_pattern
+      - name: workdept
         type: string
-        description: "Pattern to match system value names (e.g., '%LMT%', '%SEC%')"
+        description: "3-character department code (e.g. 'A00')"
         required: true
+      - name: row_limit
+        type: integer
+        description: "Maximum rows to return"
+        default: 50
+        min: 1
+        max: 500
     security:
       readOnly: true
     annotations:
       readOnlyHint: true
       idempotentHint: true
-      domain: "operations"
-      category: "daily_health"
+      domain: "sample"
+      category: "employees"
 ```
 
-### Example B — UDTF with multiple parameters + enum
+### Example B — Discovery tool against a catalog view
 
 ```yaml
 tools:
-  joblog_info:
-    source: ibmi-system
+  describe_sample_table:
+    source: ibmi-sample
     description: |
-      Retrieve job log messages. Use job_name '*' for the current job;
-      otherwise pass a qualified name (number/user/name). Filter by
-      message_type_filter: 'ESCAPE' for errors, 'DIAGNOSTIC' for warnings.
+      Return column metadata (name, type, length, nullable) for a
+      table in the SAMPLE library. Use this when you need to confirm
+      the shape of a SAMPLE.* table before composing SQL against it.
     statement: |
-      SELECT MESSAGE_TIMESTAMP, MESSAGE_ID, MESSAGE_TYPE,
-             SEVERITY, MESSAGE_TEXT
-      FROM TABLE(QSYS2.JOBLOG_INFO(:job_name))
-      WHERE (:message_type_filter = '*ALL'
-             OR MESSAGE_TYPE = :message_type_filter)
-      ORDER BY ORDINAL_POSITION DESC
-      FETCH FIRST :row_limit ROWS ONLY
+      SELECT COLUMN_NAME, DATA_TYPE, LENGTH,
+             IS_NULLABLE, COLUMN_DEFAULT
+      FROM QSYS2.SYSCOLUMNS
+      WHERE TABLE_SCHEMA = 'SAMPLE'
+        AND TABLE_NAME = :table_name
+      ORDER BY ORDINAL_POSITION
     parameters:
-      - name: job_name
+      - name: table_name
         type: string
         required: true
-        description: "Qualified job name or '*' for current job"
-      - name: message_type_filter
-        type: string
-        default: "*ALL"
-        enum: ["*ALL", "ESCAPE", "DIAGNOSTIC", "INFORMATIONAL", "COMPLETION", "NOTIFY"]
-        description: "Filter by message type"
-      - name: row_limit
-        type: integer
-        default: 50
-        min: 1
-        max: 200
-        description: "Maximum number of messages to return"
+        description: "Table name within SAMPLE (case-sensitive, uppercase)"
     security:
       readOnly: true
     annotations:
       readOnlyHint: true
       idempotentHint: true
-      domain: "operations"
-      category: "daily_health"
+      domain: "sample"
+      category: "discovery"
 
 toolsets:
-  daily_health:
-    title: "Daily Health Check Tools"
-    description: "Job log and system value tools for daily IBM i health monitoring."
+  sample_data:
+    title: "SAMPLE Data"
+    description: "Schema discovery + employee data for the Db2 for i SAMPLE library."
     tools:
-      - joblog_info
-      - system_value_lookup
+      - describe_sample_table
+      - list_employees_by_department
 ```
 
 ## 7. IBM i SQL conventions (non-negotiable)
@@ -229,7 +222,7 @@ These come from `agents/utils/common.py::DOMAIN_RULES` and apply to every tool Y
 
 - **Db2 for i syntax**: `FETCH FIRST N ROWS ONLY` — **never** `LIMIT`
 - **EBCDIC strings**: `UPPER(col) LIKE UPPER(:pattern)` for case-insensitive comparisons
-- **Fully qualified names**: `QSYS2.ACTIVE_JOB_INFO`, `SYSTOOLS.WHOAMI`. Never bare names — library list is unreliable in MCP context
+- **Fully qualified names**: `SAMPLE.EMPLOYEE`, `QSYS2.SYSCOLUMNS`. Never bare names — library list is unreliable in MCP context
 - **Parameter markers**: `:param_name` (positional `?` works too but `:` is the convention)
 - **Job names**: `number/user/name` format (e.g. `123456/QSYS/QPADEV0001`)
 - **Authority levels**: `*USE`, `*CHANGE`, `*ALL`, `*EXCLUDE`, `*PUBLIC`
@@ -257,7 +250,7 @@ Curated from real validator failures and the live schema:
 | `type: Integer` or `type: number` | Enum is lowercase: `string`/`boolean`/`integer`/`float`/`array` | `type: integer` |
 | `${param_name}` in `statement` | Env var syntax — params use `:` | `:param_name` |
 | `LIMIT 50` in `statement` | Db2 for i doesn't support `LIMIT` | `FETCH FIRST 50 ROWS ONLY` |
-| Bare table name `ACTIVE_JOB_INFO` | Library list isn't reliable | `QSYS2.ACTIVE_JOB_INFO` |
+| Bare table name `EMPLOYEE` | Library list isn't reliable | `SAMPLE.EMPLOYEE` |
 | Tool listed as `- tool_name` under `tools:` (top-level) | `tools:` is a dict (`tool_name:`) — list form is for toolsets | `tool_name:` as a key |
 | Setting both `readOnly: true` and `destructiveHint: true` | Contradictory | Pick one: read-only or destructive |
 | Top-level `readOnlyHint:` on the tool | Deprecated — schema validates but emits warnings | Move under `annotations:` |
@@ -296,19 +289,34 @@ When deciding *what* tools to build:
 - **Narrow scope beats kitchen sink.** Five focused tools an agent can route between beat one `run_any_sql` tool that the agent has to compose every time.
 - **Parameterize what varies.** If two intents differ only by a `WHERE` clause value, that's one parameterized tool, not two.
 - **Validate at the SQL layer.** Use `enum` on parameters whose values are a fixed set (status codes, message types). Use `min`/`max` on row limits.
-- **AI-facing descriptions.** The `description:` is read by the agent. Tell it *when* to use the tool, *what* it returns, and *how it differs* from sibling tools. See `tools/sys-admin.yaml` for good examples.
+- **AI-facing descriptions.** The `description:` is read by the agent. Tell it *when* to use the tool, *what* it returns, and *how it differs* from sibling tools. See `tools/sample.yaml` for good examples.
 - **Default to read-only.** Make a deliberate decision to allow writes; never default to it.
 - **One toolset, one workflow.** A toolset is the unit of agent capability — design it as a coherent set of operations the agent will use together.
 
 ## 12. Authoring loop
 
-The recommended order, modeled on the workflow in `docs/extend-agent.md`:
+The recommended order — see [`docs/write-new-tool.md`](write-new-tool.md) for the full operator-prompt version:
 
-1. **Introspect** — `ibmi schemas`, `ibmi tables QSYS2`, `ibmi columns QSYS2 ACTIVE_JOB_INFO` to capture real column names/types
-2. **Draft the SQL** — write the statement against the introspected schema
-3. **Validate the SQL** — `ibmi validate "<your statement>"` (or `ibmi sql --raw "<stmt>"` to run a small slice). Loop on errors
+1. **Explore** — `ibmi schemas`, `ibmi tables SAMPLE`, `ibmi columns SAMPLE EMPLOYEE` to capture real column names/types
+2. **Draft the SQL** — write the statement against the explored schema
+3. **Validate the SQL** — `ibmi validate "<your statement>"` (or `ibmi sql "<stmt>"` to run a small slice). Loop on errors
 4. **Author YAML** — against this doc's §2–§5
 5. **Validate YAML** — `uv run python parse_mcp_tools.py`. Loop using §10
 6. **Verify in MCP** — `curl -s http://localhost:3010/mcp/tools | jq '.tools[].name' | grep <your_tool>`
 
-That's the same shape ixora's `agent_builder.py` follows internally — introspect, validate SQL, read schema, write YAML, validate YAML. The Claude Code equivalent runs each step through `ibmi` / `uv` / `curl` via Bash.
+The `ibmi` CLI is the only database utility in this loop — see [`docs/ibmi-cli.md`](ibmi-cli.md) for the command surface.
+
+---
+
+## Validate before commit
+
+Every new or edited YAML must pass schema validation before it lands on `main`. Two entry points:
+
+```bash
+uv run python parse_mcp_tools.py          # schema validation + regenerates tools/toolsets.json
+bash scripts/validate.sh                  # umbrella: ruff + mypy + schema validation
+```
+
+`scripts/validate.sh` is what CI runs; if it's green locally, it's green in CI. A non-zero exit means fix and re-run — re-read §9 and §10 above before editing the YAML, since most failures map to a known mistake.
+
+Always commit the regenerated `tools/toolsets.json` alongside the YAML it was generated from — the Python side reads `toolsets.json` to resolve toolset names. Full authoring loop with worked SAMPLE examples: [`docs/write-new-tool.md`](write-new-tool.md).

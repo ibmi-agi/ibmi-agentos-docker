@@ -20,6 +20,8 @@ The MCP server image is published at `ghcr.io/ibm/ibmi-mcp-server` and pinned in
 
 ## The `tools/` directory
 
+The slim template ships a single tool YAML — `tools/sample.yaml` — wiring the `sample_data` toolset (schema discovery + SAMPLE.EMPLOYEE access). Add more `tools/*.yaml` files as you grow the agent's surface; see [`docs/write-new-tool.md`](write-new-tool.md) for the authoring loop.
+
 Every file under `tools/` is one of:
 
 | File | Purpose |
@@ -32,41 +34,44 @@ Every file under `tools/` is one of:
 
 ```yaml
 sources:
-  ibmi-system:
+  ibmi-sample:
     host: ${DB2i_HOST}
     user: ${DB2i_USER}
     password: ${DB2i_PASS}
     port: ${DB2i_PORT:-8076}
 
 tools:
-  list_active_jobs:
-    source: ibmi-system
-    title: List Active Jobs
-    description: Active jobs across all subsystems.
+  list_employees_by_department:
+    source: ibmi-sample
+    description: List employees in a given department.
     statement: |
-      SELECT job_name, subsystem, cpu_percent, run_priority
-      FROM TABLE(QSYS2.ACTIVE_JOB_INFO())
-      FETCH FIRST :max_rows ROWS ONLY
+      SELECT EMPNO, FIRSTNME, LASTNAME, SALARY
+      FROM SAMPLE.EMPLOYEE
+      WHERE WORKDEPT = :workdept
+      FETCH FIRST :row_limit ROWS ONLY
     parameters:
-      - name: max_rows
+      - name: workdept
+        type: string
+        required: true
+      - name: row_limit
         type: integer
         default: 50
     security:
       readOnly: true
 
 toolsets:
-  job_management:
-    title: Job Management
-    description: Inspect and diagnose IBM i jobs.
+  sample_data:
+    title: SAMPLE Data
+    description: Schema discovery + employee data for the Db2 for i SAMPLE library.
     tools:
-      - list_active_jobs
+      - list_employees_by_department
 ```
 
 Three things to know:
 
-1. **`source`** — the connection definition. The template's single source is `ibmi-system`, parameterized from env vars. Every tool references the same source.
+1. **`source`** — the connection definition. The template's single source is `ibmi-sample`, parameterized from env vars. Every tool references the same source.
 2. **`security.readOnly: true`** — the server validates that the statement is read-only. Modifying tools (UPDATE, DELETE, CL commands) must omit this or set `false` and pair it with `annotations.destructiveHint: true`.
-3. **`toolsets`** — groups of tools agents can grab as a unit (via `ibmi_tools(["job_management"])`). Tools can belong to multiple toolsets if they're useful in multiple contexts.
+3. **`toolsets`** — groups of tools agents can grab as a unit (via `ibmi_tools(["sample_data"])`). Tools can belong to multiple toolsets if they're useful in multiple contexts.
 
 Full schema: `tools/sql-tools-config.schema.json`.
 
@@ -117,7 +122,7 @@ For local agent development without the full stack, you can run just the MCP ser
 
 ```bash
 docker compose up -d ibmi-mcp-server agentos-db
-uv run python cli.py --agent text2sql --prompt "list schemas"
+uv run python cli.py --agent ibmi-data-agent --prompt "list the tables in SAMPLE"
 ```
 
 `cli.py` overrides `MCP_URL` to `http://localhost:3010/mcp` so it can reach the docker-published port from the host.
