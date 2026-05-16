@@ -185,9 +185,7 @@ class AuthService:
         try:
             with self.engine.begin() as conn:
                 conn.execute(
-                    text(
-                        "UPDATE api_keys SET last_used_at = now() WHERE key_hash = :key_hash"
-                    ),
+                    text("UPDATE api_keys SET last_used_at = now() WHERE key_hash = :key_hash"),
                     {"key_hash": key_hash},
                 )
         except Exception:

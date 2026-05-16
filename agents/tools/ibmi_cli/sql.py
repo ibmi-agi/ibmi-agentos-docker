@@ -32,10 +32,7 @@ def pase_call_wrap(pase_command: str) -> str:
 
 def services_info_query(filter_pattern: str | None) -> str:
     """Build a QSYS2.SERVICES_INFO discovery query, optional SERVICE_NAME LIKE."""
-    base_select = (
-        "SELECT SERVICE_SCHEMA_NAME, SERVICE_NAME, "
-        "SERVICE_CATEGORY, EXAMPLE FROM QSYS2.SERVICES_INFO "
-    )
+    base_select = "SELECT SERVICE_SCHEMA_NAME, SERVICE_NAME, SERVICE_CATEGORY, EXAMPLE FROM QSYS2.SERVICES_INFO "
     order_by = "ORDER BY SERVICE_SCHEMA_NAME, SERVICE_NAME"
     if filter_pattern:
         escaped = _escape_sql_literal(filter_pattern)

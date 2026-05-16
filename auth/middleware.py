@@ -115,9 +115,7 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
                         '"from cryptography.fernet import Fernet; '
                         'print(Fernet.generate_key().decode())"'
                     )
-                    raise RuntimeError(
-                        "AUTH_ENCRYPTION_KEY is required when MCP_AUTH_MODE=ibmi"
-                    )
+                    raise RuntimeError("AUTH_ENCRYPTION_KEY is required when MCP_AUTH_MODE=ibmi")
 
                 from auth.connections import ConnectionsService
                 from auth.mcp_tokens import get_token_manager
@@ -128,9 +126,7 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
 
             self._initialized = True
         except Exception:
-            logger.exception(
-                "Failed to initialize auth service — will retry on next request"
-            )
+            logger.exception("Failed to initialize auth service — will retry on next request")
 
     async def _resolve_mcp_connection(self, request: Request) -> None:
         """Resolve the user's IBM i connection and acquire an MCP token.
@@ -170,9 +166,7 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
 
             if conn is None:
                 request.state.mcp_auth_status = "invalid-connection"
-                logger.warning(
-                    "X-System-Connection header value not found: %s", conn_header
-                )
+                logger.warning("X-System-Connection header value not found: %s", conn_header)
                 return
         else:
             conn = conn_svc.get_default_connection(api_key_id)
@@ -184,9 +178,7 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
         connection_id = UUID(str(conn["id"]))
         creds = conn_svc.get_connection_credentials(connection_id, api_key_id)
         if creds is None:
-            logger.warning(
-                "Could not decrypt credentials for connection %s", connection_id
-            )
+            logger.warning("Could not decrypt credentials for connection %s", connection_id)
             request.state.mcp_auth_status = "credential-error"
             return
 
@@ -220,16 +212,12 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
                 self._last_touch[connection_id] = now
                 # Prune oldest entries if dict grows too large
                 if len(self._last_touch) > _MAX_TOUCH_ENTRIES:
-                    oldest = heapq.nsmallest(
-                        100, self._last_touch.items(), key=lambda kv: kv[1]
-                    )
+                    oldest = heapq.nsmallest(100, self._last_touch.items(), key=lambda kv: kv[1])
                     for k, _ in oldest:
                         del self._last_touch[k]
 
         except Exception:
-            logger.exception(
-                "Failed to acquire MCP token for connection %s", connection_id
-            )
+            logger.exception("Failed to acquire MCP token for connection %s", connection_id)
             request.state.mcp_auth_status = "auth-failed"
 
     def _check_rate_limit(self, bucket: str, log_fields: str) -> JSONResponse | None:
@@ -295,9 +283,7 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
         key_meta = self._authenticate(token)
         if key_meta:
             key_prefix = key_meta.get("key_prefix", "?")
-            key_limited = self._check_rate_limit(
-                f"key:{key_meta['id']}", f"key_prefix={key_prefix} path={path}"
-            )
+            key_limited = self._check_rate_limit(f"key:{key_meta['id']}", f"key_prefix={key_prefix} path={path}")
             if key_limited is not None:
                 return key_limited
 
@@ -309,10 +295,7 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
 
             if MCP_AUTH_MODE == "ibmi":
                 await self._resolve_mcp_connection(request)
-                if (
-                    getattr(request.state, "mcp_auth_status", None)
-                    == "invalid-connection"
-                ):
+                if getattr(request.state, "mcp_auth_status", None) == "invalid-connection":
                     conn_val = request.headers.get("x-system-connection", "")
                     return JSONResponse(
                         status_code=400,
@@ -336,9 +319,7 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
             return response
 
         # 2. Fall back to OS_SECURITY_KEY
-        if self._os_security_key and AuthService.verify_legacy_key(
-            token, self._os_security_key
-        ):
+        if self._os_security_key and AuthService.verify_legacy_key(token, self._os_security_key):
             request.state.authenticated = True
             request.state.user_id = "__legacy__"
             request.state.scopes = ["admin", "agents:run", "teams:run", "workflows:run"]
