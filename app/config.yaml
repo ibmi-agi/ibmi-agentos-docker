@@ -1,14 +1,7 @@
 chat:
   quick_prompts:
-    ibmi-text2sql:
-      - "List the schemas on this system"
-      - "Show me the columns in QSYS2.SYSTABLES"
-      - "How many active jobs are running right now?"
-    ibmi-sql-service-guide:
-      - "What SQL Services exist for performance monitoring?"
-      - "Find SQL Services related to security auditing"
-      - "Show me an example for SYSTEM_STATUS"
-    ibmi-system-health:
-      - "Give me a full system health check — CPU, memory, top jobs"
-      - "What is current CPU utilization?"
-      - "Are any ASPs above 80% full?"
+    ibmi-data-agent:
+      - "What tables are in the SAMPLE library?"
+      - "Show employees in department A00"
+      - "What's the average salary by department?"
+      - "Who manages department D11?"

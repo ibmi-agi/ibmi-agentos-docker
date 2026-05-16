@@ -2,8 +2,9 @@
 AgentOS Entrypoint
 ==================
 
-Three IBM i agents are registered out of the box. Add yours by importing
-it here and appending to the ``agents=[]`` list — see ``docs/create-new-agent.md``.
+A single IBM i Data Agent is registered out of the box. Add yours by
+importing it here and appending to the ``agents=[]`` list — see
+``docs/create-new-agent.md``.
 
 When ``AUTH_ENABLED=true`` the optional auth middleware is attached
 (see ``docs/auth-optional.md``).
@@ -16,9 +17,7 @@ from pathlib import Path
 from agno.os import AgentOS
 from agno.utils.log import log_info
 
-from agents.sql_service_guide import sql_service_guide_agent
-from agents.system_health import system_health_agent
-from agents.text2sql import text2sql_agent
+from agents.ibmi_data_agent import ibmi_data_agent
 from agents.utils.web_context import web_backend
 from db import get_postgres_db
 
@@ -58,11 +57,7 @@ agent_os = AgentOS(
     authorization=runtime_env == "prd",
     lifespan=lifespan,
     db=get_postgres_db(),
-    agents=[
-        text2sql_agent,
-        sql_service_guide_agent,
-        system_health_agent,
-    ],
+    agents=[ibmi_data_agent],
     config=str(Path(__file__).parent / "config.yaml"),
 )
 app = agent_os.get_app()

@@ -1,17 +1,12 @@
 """
-IBM i Text-to-SQL Agent
+IBM i Data Agent
 
-Translates natural language questions into Db2 for i SQL queries — schema
-exploration, query generation, validation, and execution against IBM i
-systems. The go-to agent for ad-hoc SQL work.
+Read-only Q&A over the Db2 for i SAMPLE library — schema discovery and
+employee/department/project lookups via the ``sample_data`` toolset
+served by ibmi-mcp-server.
 
-Tools (built-in to ibmi-mcp-server when IBMI_ENABLE_DEFAULT_TOOLS=true):
-  - execute_sql, validate_query, describe_sql_object
-  - list_schemas, list_tables_in_schema, get_table_columns, get_related_objects
-
-Web research is wired through ``agents.utils.web_context`` — Parallel.ai
-MCP behind a synthesizing sub-agent so the main agent never sees raw
-search snippets in its context window.
+Toolset (from tools/sample.yaml):
+  - sample_data — schema-discovery + employee-info tools scoped to SAMPLE
 """
 
 from __future__ import annotations
@@ -19,46 +14,36 @@ from __future__ import annotations
 from agno.agent import Agent
 
 from agents import AGENT_DEFAULTS
-from agents.config import SQL_CONFIRMATION_TOOLS, SQL_TOOLS
 from agents.utils.common import (
     DOMAIN_RULES,
     FORMATTING,
     GUARDRAILS,
     SQL_POLICY,
-    WEB,
     build_instructions,
 )
-from agents.utils.toolsets import collect_tools, ibmi_tools
-from agents.utils.web_context import web_tools
+from agents.utils.toolsets import ibmi_tools
 from app.knowledge import ibmi_knowledge
 from app.settings import default_model
 from db import get_postgres_db
-from learning import get_learning
 
 # =============================================================================
 # Agent Configuration
 # =============================================================================
 
-AGENT_ID = "ibmi-text2sql"
-NAME = "IBM i Text-to-SQL Agent"
+AGENT_ID = "ibmi-data-agent"
+NAME = "IBM i Data Agent"
 
 DESCRIPTION = """\
-Translates natural language questions into Db2 for i SQL queries — schema \
-exploration, query generation, validation, and execution against IBM i \
-systems. The go-to agent for ad-hoc SQL work.\
+Read-only Q&A over the Db2 for i SAMPLE library — employees, departments, \
+projects, and activities. Uses schema-discovery and employee-info tools \
+scoped to SAMPLE.\
 """
 
 # =============================================================================
-# Tools — built-in SQL tools + web research sub-agent
+# Tools — sample_data toolset (schema discovery + employee info)
 # =============================================================================
 
-tools = collect_tools(
-    ibmi_tools(
-        include_tools=SQL_TOOLS,
-        requires_confirmation_tools=SQL_CONFIRMATION_TOOLS,
-    ),
-    *web_tools(),
-)
+tools = [ibmi_tools("sample_data")]
 
 # =============================================================================
 # Instructions
@@ -68,7 +53,6 @@ INSTRUCTIONS = build_instructions(
     GUARDRAILS,
     DOMAIN_RULES,
     SQL_POLICY,
-    WEB,
     FORMATTING,
     agent_id=AGENT_ID,
 )
@@ -77,7 +61,7 @@ INSTRUCTIONS = build_instructions(
 # Agent
 # =============================================================================
 
-text2sql_agent = Agent(
+ibmi_data_agent = Agent(
     id=AGENT_ID,
     name=NAME,
     model=default_model(),
@@ -87,6 +71,5 @@ text2sql_agent = Agent(
     db=get_postgres_db(),
     knowledge=ibmi_knowledge,
     search_knowledge=True,
-    learning=get_learning(),
     **AGENT_DEFAULTS,
 )
