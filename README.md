@@ -1,4 +1,4 @@
-# IBM i AgentOS Template
+# Ixora Template
 
 A starter repo for building, improving, and shipping IBM i agents on [Agno AgentOS](https://docs.agno.com). Three reference agents (Text-to-SQL, SQL Service Guide, System Health) are wired up out of the box, and Claude Code prompts under `docs/` drive the full lifecycle — create, improve, extend, eval, review.
 

@@ -1,4 +1,4 @@
-# IBM i AgentOS Template — Conventions
+# Ixora Template — Conventions
 
 This file is the source of truth for any coding agent (Claude Code, Codex, others) working in this repo. `CLAUDE.md` is a symlink to this file — edit one, both update.
 

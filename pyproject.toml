@@ -1,11 +1,11 @@
 [project]
-name = "ibmi-agentos-template"
+name = "ixora-template"
 version = "0.1.0"
 description = "Starter template for building IBM i agents on Agno AgentOS."
 requires-python = ">=3.12,<4"
 readme = "README.md"
 license-files = ["LICENSE"]
-authors = [{ name = "IBM i AgentOS Template" }]
+authors = [{ name = "Ixora Template" }]
 
 dependencies = [
   "agno[os]",
