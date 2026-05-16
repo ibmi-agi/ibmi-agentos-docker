@@ -45,9 +45,7 @@ def validate_yaml_file(data: dict, schema: dict, filename: str) -> list[str]:
     return errors
 
 
-def parse_yaml_tools(
-    tools_dir: Path, schema: dict | None = None
-) -> tuple[dict, list[str]]:
+def parse_yaml_tools(tools_dir: Path, schema: dict | None = None) -> tuple[dict, list[str]]:
     """
     Parse all YAML files in tools_dir and extract toolset-to-tool mappings.
 
@@ -84,9 +82,7 @@ def parse_yaml_tools(
             continue
 
         if not isinstance(data, dict):
-            all_errors.append(
-                f"{yaml_file.name}: Expected a YAML mapping at root, got {type(data).__name__}"
-            )
+            all_errors.append(f"{yaml_file.name}: Expected a YAML mapping at root, got {type(data).__name__}")
             continue
 
         # Validate against schema
@@ -120,9 +116,7 @@ def parse_yaml_tools(
 
             tools_list = toolset_def.get("tools", [])
             # Filter out commented tools (strings starting with #)
-            tools_list = [
-                t for t in tools_list if isinstance(t, str) and not t.startswith("#")
-            ]
+            tools_list = [t for t in tools_list if isinstance(t, str) and not t.startswith("#")]
 
             entry: dict[str, Any] = {
                 "tools": tools_list,
@@ -134,9 +128,7 @@ def parse_yaml_tools(
                 entry["description"] = toolset_def["description"]
 
             # Attach per-tool metadata (description, parameters)
-            tool_metadata = {
-                t: tool_meta_lookup[t] for t in tools_list if t in tool_meta_lookup
-            }
+            tool_metadata = {t: tool_meta_lookup[t] for t in tools_list if t in tool_meta_lookup}
             if tool_metadata:
                 entry["tool_metadata"] = tool_metadata
 
@@ -173,9 +165,7 @@ def main():
         default=DEFAULT_SCHEMA_PATH,
         help="JSON schema file for validation",
     )
-    parser.add_argument(
-        "--skip-validation", action="store_true", help="Skip JSON schema validation"
-    )
+    parser.add_argument("--skip-validation", action="store_true", help="Skip JSON schema validation")
     args = parser.parse_args()
 
     if not args.tools_dir.is_dir():
@@ -216,9 +206,7 @@ def main():
     total_tools = sum(len(t["tools"]) for t in toolsets.values())
     sources = sorted(set(t["source"] for t in toolsets.values()))
 
-    print(
-        f"\nParsed {len(sources)} YAML files -> {total_toolsets} toolsets, {total_tools} tool references"
-    )
+    print(f"\nParsed {len(sources)} YAML files -> {total_toolsets} toolsets, {total_tools} tool references")
     print(f"Output: {args.output}")
 
     for name, info in toolsets.items():

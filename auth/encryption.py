@@ -50,8 +50,6 @@ def decrypt_credential(ciphertext: str) -> str:
     try:
         return _get_fernet().decrypt(ciphertext.encode()).decode()
     except InvalidToken as exc:
-        raise EncryptionError(
-            "Decryption failed — invalid token or wrong encryption key"
-        ) from exc
+        raise EncryptionError("Decryption failed — invalid token or wrong encryption key") from exc
     except Exception as exc:
         raise EncryptionError(f"Decryption failed: {exc}") from exc

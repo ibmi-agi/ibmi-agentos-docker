@@ -80,11 +80,7 @@ class LazyMCPTools(MCPTools):
         """Set auth headers on server_params for the transport layer."""
         if self.transport not in ("streamable-http", "sse"):
             return
-        ParamsCls = (
-            StreamableHTTPClientParams
-            if self.transport == "streamable-http"
-            else SSEClientParams
-        )
+        ParamsCls = StreamableHTTPClientParams if self.transport == "streamable-http" else SSEClientParams
         if self.server_params is None:
             self.server_params = ParamsCls(url=self.url or "", headers=headers)
         else:
@@ -122,9 +118,7 @@ class LazyMCPTools(MCPTools):
                     fn = self.functions.get(tool_name)
                     if fn and fn.entrypoint is not None:
                         return await fn.entrypoint(**kwargs)
-                raise RuntimeError(
-                    f"Tool {tool_name} unavailable — no MCP auth token in context"
-                )
+                raise RuntimeError(f"Tool {tool_name} unavailable — no MCP auth token in context")
             fn = self.functions.get(tool_name)
             if fn and fn.entrypoint is not None:
                 return await fn.entrypoint(**kwargs)
@@ -138,9 +132,7 @@ class LazyMCPTools(MCPTools):
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore", category=RuntimeWarning, message=".*async_generator.*"
-            )
+            warnings.filterwarnings("ignore", category=RuntimeWarning, message=".*async_generator.*")
             try:
                 await super().__aexit__(exc_type, exc_val, exc_tb)
             except RuntimeError as e:
@@ -157,9 +149,7 @@ class LazyMCPTools(MCPTools):
         if not self._initialized and not self._real_connected:
             return
         with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore", category=RuntimeWarning, message=".*async_generator.*"
-            )
+            warnings.filterwarnings("ignore", category=RuntimeWarning, message=".*async_generator.*")
             try:
                 await super().close()
             except RuntimeError as e:

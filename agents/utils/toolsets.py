@@ -75,16 +75,12 @@ def ibmi_tools(
     its own native tools and manages its own confirmation gating.
     """
     if CLI_MODE:
-        names: list[str] = (
-            [toolset] if isinstance(toolset, str) else list(toolset) if toolset else []
-        )
+        names: list[str] = [toolset] if isinstance(toolset, str) else list(toolset) if toolset else []
         return ibmi_cli_tools(toolsets=names or None)
 
     tool_names: list[str] = []
     if toolset is not None:
-        tool_names.extend(
-            get_toolset(toolset) if isinstance(toolset, str) else get_toolsets(*toolset)
-        )
+        tool_names.extend(get_toolset(toolset) if isinstance(toolset, str) else get_toolsets(*toolset))
     if include_tools is not None:
         tool_names.extend(include_tools)
 

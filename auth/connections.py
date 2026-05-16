@@ -51,8 +51,7 @@ ON system_connections (api_key_id)
 
 # Columns returned in non-credential queries
 _SAFE_COLUMNS = (
-    "id, api_key_id, name, host, port, ibmi_user,"
-    " is_default, is_active, created_at, updated_at, last_connected"
+    "id, api_key_id, name, host, port, ibmi_user, is_default, is_active, created_at, updated_at, last_connected"
 )
 
 
@@ -131,18 +130,14 @@ class ConnectionsService:
             row = result.mappings().fetchone()
 
         record = _row_to_dict(row) if row else {}
-        logger.info(
-            "Connection created: name=%s host=%s api_key_id=%s", name, host, api_key_id
-        )
+        logger.info("Connection created: name=%s host=%s api_key_id=%s", name, host, api_key_id)
         return record
 
     # ------------------------------------------------------------------
     # Read
     # ------------------------------------------------------------------
 
-    def list_all_connections(
-        self, api_key_id: UUID | None = None
-    ) -> list[dict[str, Any]]:
+    def list_all_connections(self, api_key_id: UUID | None = None) -> list[dict[str, Any]]:
         """List all connections across all API keys (admin view).
 
         Includes ``api_key_name`` via LEFT JOIN on api_keys.
@@ -182,9 +177,7 @@ class ConnectionsService:
             )
             return [_row_to_dict(r) for r in result.mappings().fetchall()]
 
-    def get_connection(
-        self, connection_id: UUID, api_key_id: UUID
-    ) -> dict[str, Any] | None:
+    def get_connection(self, connection_id: UUID, api_key_id: UUID) -> dict[str, Any] | None:
         """Get a single connection by ID (scoped to API key)."""
         with self.engine.begin() as conn:
             result = conn.execute(
@@ -198,9 +191,7 @@ class ConnectionsService:
             row = result.mappings().fetchone()
             return _row_to_dict(row) if row else None
 
-    def get_connection_by_name(
-        self, name: str, api_key_id: UUID
-    ) -> dict[str, Any] | None:
+    def get_connection_by_name(self, name: str, api_key_id: UUID) -> dict[str, Any] | None:
         """Get a single connection by name (scoped to API key)."""
         with self.engine.begin() as conn:
             result = conn.execute(
@@ -230,9 +221,7 @@ class ConnectionsService:
             row = result.mappings().fetchone()
             return _row_to_dict(row) if row else None
 
-    def get_connection_credentials(
-        self, connection_id: UUID, api_key_id: UUID
-    ) -> dict[str, str] | None:
+    def get_connection_credentials(self, connection_id: UUID, api_key_id: UUID) -> dict[str, str] | None:
         """Get decrypted credentials for a connection."""
         with self.engine.begin() as conn:
             result = conn.execute(
@@ -327,9 +316,7 @@ class ConnectionsService:
             )
             return result.fetchone() is not None
 
-    def touch_last_connected(
-        self, connection_id: UUID, api_key_id: UUID | None = None
-    ) -> None:
+    def touch_last_connected(self, connection_id: UUID, api_key_id: UUID | None = None) -> None:
         """Update the last_connected timestamp."""
         try:
             sql = "UPDATE system_connections SET last_connected = now() WHERE id = :id"
