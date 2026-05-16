@@ -41,6 +41,12 @@ if ! mypy "${REPO_ROOT}" --config-file "${REPO_ROOT}/pyproject.toml"; then
 fi
 
 echo ""
+echo -e "${DIM}> uv run python parse_mcp_tools.py${NC}"
+if ! (cd "${REPO_ROOT}" && uv run python parse_mcp_tools.py); then
+  failed=1
+fi
+
+echo ""
 if [[ $failed -eq 0 ]]; then
   echo -e "${BOLD}Done.${NC}"
 else

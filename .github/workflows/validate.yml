@@ -38,5 +38,5 @@ jobs:
       - name: Format with ruff
         run: uv run ruff format --check .
 
-      - name: Validate (lint + type)
+      - name: Validate (lint + type + tool schema)
         run: uv run bash scripts/validate.sh
