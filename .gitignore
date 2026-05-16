@@ -45,6 +45,9 @@ ENV/
 # RSA keys for optional MCP auth (scripts/generate_mcp_keys.sh)
 secrets/
 
+# ibmi CLI per-project config (may contain plaintext credentials)
+.ibmi/
+
 # =========================
 # Jupyter / notebooks
 # =========================
