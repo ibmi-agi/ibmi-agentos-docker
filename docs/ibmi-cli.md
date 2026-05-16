@@ -44,18 +44,35 @@ ibmi --help
 
 Requires Node.js 18+. If you don't want a global install, `npx -y @ibm/ibmi-mcp-server@latest ibmi --help` works too — the CLI ships inside the same npm package as the MCP server.
 
-## Connecting — `.env` is enough
+## Connecting — project-level config
 
-If your `.env` already has the values the MCP server uses, the CLI picks them up automatically — no extra config needed:
+The CLI walks up from your current working directory looking for the nearest `.ibmi/config.yaml`, the same way `git` walks up for `.git`. **For this template, put the config inside the repo so the CLI always uses the system you're authoring against — not whatever you happen to have set globally in `~/.ibmi/config.yaml`.**
 
-| Env var       | Used as                                  |
-| ------------- | ---------------------------------------- |
-| `DB2i_HOST`   | IBM i hostname or IP                     |
-| `DB2i_USER`   | IBM i user profile                       |
-| `DB2i_PASS`   | Password for that profile                |
-| `DB2i_PORT`   | Mapepire port — defaults to `8076`        |
+`.ibmi/` is gitignored (see `.gitignore`); never commit it.
 
-Sanity check from the host (with `.env` loaded into the shell, or after `set -a; source .env; set +a`):
+### One-shot setup
+
+You already have `.env` with `DB2i_HOST` / `DB2i_USER` / `DB2i_PASS` — keep using it as the credential source and reference those values from the project config:
+
+```bash
+mkdir -p .ibmi
+cat > .ibmi/config.yaml <<'YAML'
+default: ibmi
+
+systems:
+  ibmi:
+    host: ${DB2i_HOST}
+    port: 8076
+    user: ${DB2i_USER}
+    password: ${DB2i_PASS}
+    ignoreUnauthorized: true
+    readOnly: true
+YAML
+```
+
+`${VAR}` is expanded at load time from the environment, so load `.env` into your shell once per session (`set -a; source .env; set +a`) — or use [`direnv`](https://direnv.net/) so it happens automatically when you `cd` into the repo.
+
+Sanity check:
 
 ```bash
 ibmi sql "VALUES CURRENT_DATE"
@@ -63,15 +80,21 @@ ibmi sql "VALUES CURRENT_DATE"
 
 You should see today's date printed as a one-row table.
 
-For multiple systems (dev / prod / lpar-a / lpar-b …), use named connections — they live in `.ibmi/config.yaml` and take priority over the `DB2i_*` env vars:
+### Multiple systems
+
+Add more entries under `systems:` (dev / prod / lpar-a / lpar-b …) and pick one with `--system`, `IBMI_SYSTEM=...`, or the `default:` key. The `ibmi system add` subcommand will write the entry for you and also append `.ibmi/` to `.gitignore` if it isn't already there:
 
 ```bash
-ibmi system add dev --host dev.ibmi.example.com --user MYUSER     # prompts for password
+ibmi system add dev  --host dev.ibmi.example.com  --user MYUSER     # prompts for password
 ibmi system add prod --host prod.ibmi.example.com --user MYUSER
 ibmi system default dev
 ibmi system test --all
 ibmi system list
 ```
+
+### Zero-config fallback
+
+If you skip the project config entirely, the CLI falls back to the `DB2i_HOST` / `DB2i_USER` / `DB2i_PASS` / `DB2i_PORT` env vars from your shell. That works, but you lose per-project options (`readOnly`, `defaultSchema`, `maxRows`, named systems) — prefer the project config.
 
 ## The minimum command set for tool authoring
 

@@ -10,6 +10,7 @@ The `ibmi` CLI is the only database utility you use here. Background and command
 ## 0. Preconditions
 
 - `.env` populated. `DB2i_HOST` / `DB2i_USER` / `DB2i_PASS` set to a reachable IBM i with the `SAMPLE` library available.
+- Project-level `ibmi` CLI config in place at `.ibmi/config.yaml` — see [`docs/ibmi-cli.md`](ibmi-cli.md) for the one-shot setup. The CLI picks this up automatically when you run it from anywhere under the repo, so commands target *this* template's IBM i rather than your global default. `.ibmi/` is gitignored.
 - `ibmi` reachable. Either on the host (`ibmi --version`) or inside the container (`docker compose exec agentos-api ibmi --version`). Sanity check returns today's date:
 
   ```bash
