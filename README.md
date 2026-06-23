@@ -73,7 +73,6 @@ Plus reference docs:
 - [`docs/tool-design-reference.md`](docs/tool-design-reference.md) — YAML schema, conventions, worked examples; read before authoring any `tools/*.yaml`
 - [`docs/ibmi-mcp-server.md`](docs/ibmi-mcp-server.md) — how the MCP server, tool YAMLs, and `parse_mcp_tools.py` fit together
 - [`docs/knowledge-base.md`](docs/knowledge-base.md) — how `knowledge/`, the embedder, and `scripts/load_knowledge.py` work
-- [`docs/cli-mode.md`](docs/cli-mode.md) — runtime CLI mode (`IBMI_CLI_MODE=true`): skip the MCP server entirely and run the agent against the bundled `ibmi` binary
 - [`docs/auth-optional.md`](docs/auth-optional.md) — opt in to multi-user IBM i credentials
 
 ## How it fits together

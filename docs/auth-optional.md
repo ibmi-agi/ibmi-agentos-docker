@@ -1,7 +1,5 @@
 # Optional Multi-User MCP Auth
 
-> **Note:** This doc applies only when `IBMI_CLI_MODE=false` (the default). When CLI Mode is on, agents talk to the bundled `ibmi` binary directly and the `auth/` module is bypassed entirely — see [`cli-mode.md`](cli-mode.md). For per-user identity, stay on MCP Mode.
-
 The template ships with a complete optional auth layer in `auth/`. By default it's **off** — every request to the agentos-api uses one shared set of IBM i credentials from `.env`. Flipping `AUTH_ENABLED=true` and applying `compose.auth.yaml` turns on:
 
 1. **API key bearer-token enforcement** — every request to `/agents/*` and other endpoints requires a valid API key

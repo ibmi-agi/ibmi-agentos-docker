@@ -16,26 +16,9 @@ That symmetry is the point. When you are authoring a `tools/*.yaml`, the CLI is 
 
 You commit the YAML only after the SQL works in the CLI. See [`docs/write-new-tool.md`](write-new-tool.md) for the end-to-end loop.
 
-> **Not the same as `IBMI_CLI_MODE`.** [`docs/cli-mode.md`](cli-mode.md) describes a *runtime* toggle where agents call the bundled CLI binary instead of the MCP server. This doc is about using the CLI at *authoring time* to design tools, regardless of which runtime mode you deploy with.
+## Install it
 
-## Already in the container
-
-The Dockerfile's `node-builder` stage installs `@ibm/ibmi-cli` via npm and copies the binary + Node runtime into the Python runtime image. `ibmi` is on `PATH` inside `agentos-api` — you can shell in and use it without installing anything locally:
-
-```bash
-docker compose exec agentos-api ibmi --version
-docker compose exec agentos-api ibmi schemas
-```
-
-Pin or bump the bundled CLI version at build time (default is `0.5.1`):
-
-```bash
-docker compose build --build-arg IBMI_CLI_VERSION=0.5.2 agentos-api
-```
-
-## Install locally (host)
-
-For host-side authoring (faster iteration than `docker compose exec`):
+`ibmi` is a host-side authoring tool — install it once on your machine:
 
 ```bash
 npm install -g @ibm/ibmi-cli
