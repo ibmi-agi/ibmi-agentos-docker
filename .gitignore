@@ -28,9 +28,6 @@ htmlcov/
 .ruff_cache/
 .cache
 
-# uv state — requirements.txt is the lockfile of record
-uv.lock
-
 # =========================
 # Virtual envs + secrets
 # =========================
