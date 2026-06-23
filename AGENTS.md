@@ -120,10 +120,8 @@ This template ships generic and should stay generic.
 | Change the embedder | Edit `EMBEDDING_PROVIDER`/`EMBEDDING_MODEL` in `.env`, run `scripts/load_knowledge.py --recreate` |
 | Change the model | Edit `DEFAULT_MODEL_ID` in `.env`, restart `agentos-api` |
 | Switch to multi-user auth | See `docs/auth-optional.md` |
-| Run without the MCP server (CLI mode) | Set `IBMI_CLI_MODE=true` in `.env`, restart `agentos-api`. See `docs/cli-mode.md` |
 | Deploy to production | `docker compose --env-file .env.production up -d` on a host with the IBM i reachable; same `compose.yaml` as dev |
 | Bump MCP server version | Edit `MCP_SERVER_VERSION` in `.env`, `docker compose pull ibmi-mcp-server`, restart |
-| Bump bundled ibmi CLI version | `docker compose build --build-arg IBMI_CLI_VERSION=0.5.2 agentos-api` |
 
 ## Lifecycle docs (Claude Code prompts)
 
@@ -143,4 +141,3 @@ Plus reference docs:
 | `docs/ibmi-mcp-server.md` | How `tools/*.yaml`, `parse_mcp_tools.py`, and the MCP server fit together |
 | `docs/knowledge-base.md` | How `knowledge/`, the embedder, and `scripts/load_knowledge.py` work |
 | `docs/auth-optional.md` | How to enable multi-user IBM i credentials |
-| `docs/cli-mode.md` | Runtime CLI mode — run without the MCP server (bundled `ibmi` CLI binary) |

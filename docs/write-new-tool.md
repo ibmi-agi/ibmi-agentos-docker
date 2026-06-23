@@ -10,7 +10,7 @@ The `ibmi` CLI is the only database utility you use here. Background and command
 ## 0. Preconditions
 
 - `.env` populated. `DB2i_HOST` / `DB2i_USER` / `DB2i_PASS` set to a reachable IBM i with the `SAMPLE` library available.
-- `ibmi` reachable. Either on the host (`ibmi --version`) or inside the container (`docker compose exec agentos-api ibmi --version`). Sanity check returns today's date:
+- `ibmi` installed on the host (`ibmi --version`) — see [`docs/ibmi-cli.md`](ibmi-cli.md) to install it. Sanity check returns today's date:
 
   ```bash
   ibmi sql "VALUES CURRENT_DATE"
