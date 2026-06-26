@@ -1,31 +1,36 @@
 """
-Shared instruction blocks for IBM i agents.
+Shared instruction blocks and model configuration for IBM i agents.
 
-These blocks implement defense-in-depth patterns reused by every agent.
-Import what you need and compose with :func:`build_instructions`. Each block
-is a plain string so agents can pick exactly the ones that apply.
+These blocks implement defense-in-depth patterns that are genuinely reused
+by ALL agents. Import and compose them in each agent's instructions.
 """
 
-from __future__ import annotations
+from os import getenv
 
-from pathlib import Path
+from agno.models.utils import get_model
 
 from agents.utils.web_context import web_instructions
 
-INSTRUCTIONS_DIR = Path(__file__).resolve().parent.parent / "instructions"
+# =============================================================================
+# Model Configuration
+#
+# Set these env vars to use any model provider supported by agno.
+# Format: "<provider>:<model_id>" (e.g. "openai:gpt-4o", "google:gemini-2.0-flash")
+# Default: Anthropic Claude models
+# =============================================================================
 
-# Provider-supplied instruction snippet describing the ``query_web(question)``
-# tool. Built lazily — the singleton WebContextProvider is constructed the
-# first time this attribute is read; the underlying MCP backend connects
-# during the FastAPI lifespan (``app/main.py``).
+AGENT_MODEL = get_model(getenv("AGENT_MODEL", "anthropic:claude-sonnet-4-5"))
+AGENT_TEAM_MEMBER_MODEL = get_model(getenv("AGENT_TEAM_MEMBER_MODEL", "anthropic:claude-haiku-4-5"))
+
+# =============================================================================
+# Web Research
+#
+# The Parallel web-context provider exposes a single ``query_web(question)``
+# tool routed through a synthesizing sub-agent. Spread ``*web_tools()`` into an
+# agent's ``tools`` and interpolate ``{WEB}`` into its instructions.
+# =============================================================================
+
 WEB = web_instructions()
-
-
-def load_instructions(agent_id: str) -> str:
-    """Load core mission instructions from ``agents/instructions/{agent_id}.md``."""
-    path = INSTRUCTIONS_DIR / f"{agent_id}.md"
-    return path.read_text()
-
 
 # =============================================================================
 # Safety & Guardrails
@@ -51,22 +56,26 @@ GUARDRAILS = """\
 """
 
 # =============================================================================
-# IBM i Domain Rules
+# Data Handling Standards
 # =============================================================================
 
-DOMAIN_RULES = """\
-## IBM i Domain Rules
+DATA_HANDLING = """\
+## Data Handling Standards
 
-Rules of the road for interacting with IBM i systems via SQL and your tools:
+**Query Best Practices:**
+- Use parameterized queries to prevent SQL injection
+- Apply appropriate FETCH FIRST / LIMIT clauses for large result sets
+- Prefer read-only operations unless write is explicitly requested
 
-- Use `FETCH FIRST N ROWS ONLY` (not `LIMIT`) — Db2 for i syntax
-- Use `UPPER()` for case-insensitive comparisons on EBCDIC data
-- Qualify job names as `number/user/name` (e.g., `123456/MYUSER/MYJOB`)
-- Use fully qualified object names: `SCHEMA.TABLE` (e.g., `QSYS2.ACTIVE_JOB_INFO`)
-- System libraries: `QSYS` (OS objects), `QSYS2` (SQL services), `SYSTOOLS` (utilities)
-- `*PUBLIC` authority levels: `*USE`, `*CHANGE`, `*ALL`, `*EXCLUDE`
-- Special authorities: `*ALLOBJ`, `*SAVSYS`, `*SECADM`, `*IOSYSCFG`
-- Default to 100-row result sets unless the user asks for more\
+**Result Presentation:**
+- Summarize large datasets; offer to show details on request
+- Format tabular data for readability
+- Indicate when results are truncated or sampled
+
+**Performance Awareness:**
+- Warn before executing potentially expensive queries (full table scans, JOINs on large tables)
+- Suggest indexes or optimizations when relevant
+- Respect system resource constraints\
 """
 
 # =============================================================================
@@ -89,81 +98,53 @@ ERROR_HANDLING = """\
 """
 
 # =============================================================================
-# SQL Execution Policy
+# Audit & Transparency
 # =============================================================================
 
-SQL_POLICY = """\
-## SQL Execution
+AUDIT = """\
+## Audit & Transparency
 
-You have tools for running ad-hoc SQL against the IBM i system — schema \
-inspection, syntax validation, and execution.
+**Action Logging:**
+- Clearly state what actions you are taking and why
+- Report which tools/queries you executed
+- Indicate when accessing external systems or IBM i services
 
-**Policy — use your domain-specific tools first:**
-1. Always prefer your specialized tools for the task at hand. They are \
-purpose-built, safer, and return structured results.
-2. Only use ad-hoc SQL when:
-   - The user explicitly asks you to run a SQL statement
-   - Your specialized tools cannot fulfill the request
-3. If you determine SQL is needed but the user hasn't asked for it, suggest it: \
-*"I can't do that with my built-in tools. Would you like me to write and run \
-a SQL query instead?"*
-
-**MANDATORY — inspect before every query:**
-Column availability varies by IBM i Technology Refresh level. Your training \
-data WILL reference columns that do not exist on the target system. Never \
-assume column names from memory.
-
-Before writing any SQL:
-1. Inspect the schema of EVERY table or view you intend to query
-2. Use ONLY the column names returned by that inspection
-3. Validate the statement's syntax with ``validate_query``
-4. Present the SQL to the user
-5. Execute it — ``execute_sql`` requires user confirmation
-
-**SQL rules:**
-- Use fully qualified names (SCHEMA.TABLE)
-- Apply ``FETCH FIRST N ROWS ONLY`` to limit result sets
-- Use ``UPPER()`` for case-insensitive comparisons on EBCDIC data\
+**Reasoning Visibility:**
+- Explain your analysis approach for complex requests
+- Show your work when performing calculations
+- Acknowledge uncertainty when present\
 """
 
 # =============================================================================
-# Response Formatting
+# User Context Footer
 # =============================================================================
 
-FORMATTING = """\
-## Response Formatting
-
-**Headings:**
-- Never use emojis in markdown headings (h1–h4) or bold section titles
-- Headings should be plain text — clean and scannable
-
-**Emoji usage:**
-- Status indicators are fine inline: ✅ ✓ ⚠️ ❌ to convey pass/fail/caution
-- Do not scatter decorative emojis throughout the response
-- When in doubt, leave the emoji out
-
-**Overall style:**
-- Responses should be clean, structured, and professionally readable
-- Use markdown tables for tabular data
-- Lead with the answer, then supporting details\
+USER_CONTEXT = """\
+Additional Information:
+- You are interacting with the user_id: {current_user_id}
+- The user's name might be different from the user_id, you may ask for it \
+if needed and add it to your memory if they share it with you.\
 """
 
 
-def build_instructions(*sections: str, agent_id: str = "", custom_sections: str = "") -> str:
-    """Compose agent instructions from shared blocks and (optional) per-agent markdown.
+def build_instructions(*sections: str, custom_sections: str = "") -> str:
+    """
+    Compose agent instructions from shared blocks and custom content.
 
     Args:
-        *sections: Shared instruction blocks (constants from this module).
-        agent_id: When set, loads ``agents/instructions/{agent_id}.md`` as the lead mission.
-        custom_sections: Inline mission text used when ``agent_id`` is not set.
+        *sections: Variable number of shared instruction blocks to include
+        custom_sections: Agent-specific instruction content
+
+    Returns:
+        Composed instruction string
 
     Example:
         instructions = build_instructions(
-            GUARDRAILS, DOMAIN_RULES, SQL_POLICY, FORMATTING,
-            agent_id="ibmi-text2sql",
+            GUARDRAILS, DATA_HANDLING, ERROR_HANDLING,
+            custom_sections="Your specific mission..."
         )
     """
-    mission = load_instructions(agent_id) if agent_id else custom_sections
-    parts = [mission] if mission else []
+    parts = [custom_sections] if custom_sections else []
     parts.extend(sections)
+    parts.append(USER_CONTEXT)
     return "\n\n".join(parts)

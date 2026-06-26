@@ -39,7 +39,7 @@ ENV/
 .env.production
 .envrc
 
-# RSA keys for optional MCP auth (scripts/generate_mcp_keys.sh)
+# Local secrets / keys
 secrets/
 
 # =========================

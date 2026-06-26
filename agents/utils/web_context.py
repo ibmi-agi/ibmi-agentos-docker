@@ -12,16 +12,20 @@ authenticated endpoint.
 Public surface:
     * :func:`web_backend` — the lazy singleton backend (for lifespan setup/teardown)
     * :func:`web_tools` — drop into an agent's ``tools=`` list
-    * :func:`web_instructions` — drop into ``build_instructions(WEB=...)``
+    * :func:`web_instructions` — exposed as the ``WEB`` block in ``common.py``
 """
 
 from __future__ import annotations
 
+from os import getenv
 from typing import Any
 
 from agno.context.web import ParallelMCPBackend, WebContextProvider
+from agno.models.utils import get_model
 
-from app.settings import default_model
+# Model for the web-research sub-agent. Resolved here (not imported from
+# common.py) to avoid a common.py <-> web_context.py import cycle.
+DEFAULT_WEB_MODEL = "anthropic:claude-sonnet-4-5"
 
 _BACKEND: ParallelMCPBackend | None = None
 _PROVIDER: WebContextProvider | None = None
@@ -46,8 +50,7 @@ def web_provider() -> WebContextProvider:
         _PROVIDER = WebContextProvider(
             backend=web_backend(),
             id="web",
-            name="Web",
-            model=default_model(),
+            model=get_model(getenv("AGENT_MODEL", DEFAULT_WEB_MODEL)),
         )
     return _PROVIDER
 
@@ -55,15 +58,15 @@ def web_provider() -> WebContextProvider:
 def web_tools() -> list[Any]:
     """Return the provider's agent-facing tool list.
 
-    Drop ``*web_tools()`` into ``collect_tools(...)``. In default mode this
-    is a single ``query_web(question)`` tool routed through the
+    Spread ``*web_tools()`` into an agent's ``tools=`` list. In default mode
+    this is a single ``query_web(question)`` tool routed through the
     synthesizing sub-agent.
     """
     return web_provider().get_tools()
 
 
 def web_instructions() -> str:
-    """Return the provider's instruction snippet for ``build_instructions``."""
+    """Return the provider's instruction snippet (the ``WEB`` block)."""
     return web_provider().instructions()
 
 

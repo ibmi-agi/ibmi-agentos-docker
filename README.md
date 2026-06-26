@@ -1,160 +1,409 @@
-# Ixora Template — SAMPLE Data Agent for IBM i
+# IBM i AgentOS — Docker Template
 
-A starter template you clone and extend. Out of the box it ships a single agent — **IBM i Data Agent** — wired to the Db2 for i `SAMPLE` library: the demo schema (EMPLOYEE, DEPARTMENT, PROJECT, EMP_ACT, ACT) that's available on every IBM i system. The template gives you the agent, a curated knowledge base of `SAMPLE` table metadata and example queries, validated tool YAMLs, and a tool-authoring loop built around the [`ibmi` CLI](https://ibm-d95bab6e.mintlify.app/cli/overview.md). Use it as the scaffolding for your own IBM i agents.
+Run a multi-agent system for IBM i on Agno AgentOS, with Docker.
 
-The template is designed so a coding agent can read, edit, and improve the platform end-to-end: agent code, tool YAMLs, knowledge files, and docs all live in one repo.
+[What is AgentOS?](https://docs.agno.com/agent-os/introduction) · [Agno Docs](https://docs.agno.com) · [Discord](https://agno.com/discord) · [IBM i MCP Server](https://github.com/IBM/ibmi-mcp-server)
 
-## 5-minute quickstart
+---
 
-**Prerequisites:** Docker (or Podman), an IBM i system reachable from your host (with the `SAMPLE` library — present by default on every IBM i), and an API key for your model provider (`ANTHROPIC_API_KEY` by default).
+## What's Included
 
-```bash
-git clone https://github.com/ibmi-agi/ixora-template && cd ixora-template
+### IBM i Agents
+| Agent | Pattern | Description |
+|-------|---------|-------------|
+| **Text-to-SQL** | MCP built-ins | Translates natural language into SQL for Db2 for i |
+| **Performance Monitor** | MCP | System performance analysis — CPU, memory, I/O metrics |
+| **Security Audit** | MCP | Vulnerability assessment and remediation for IBM i security |
+| **Library List Security** | MCP + Reasoning | Library list analysis and CWE-427 attack prevention |
+| **PTF Management** | MCP | PTF group currency monitoring and maintenance planning |
+| **Sample Database** | MCP | Demo agent for exploring the SAMPLE schema |
+
+Every agent also gets a **`query_web`** tool — live web research over Parallel's MCP
+endpoint, routed through a synthesizing sub-agent so the main agent's context stays clean.
+
+---
+
+## Quick Start
+
+### Prerequisites
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop)
+- [Anthropic API key](https://console.anthropic.com/settings/keys) (or another provider's key)
+- An IBM i user profile with the [Mapepire](https://ibm-d95bab6e.mintlify.app/quickstart) database server installed on the system
+
+### 1. Clone and configure
+```sh
+git clone https://github.com/ibmi-agi/ibmi-agentos-docker.git
+cd ibmi-agentos-docker
 cp .env.example .env
-# Edit .env — set DB2i_HOST / DB2i_USER / DB2i_PASS and your model key
+```
+
+### 2. Configure `.env`
+
+Add your API keys and IBM i connection details:
+```sh
+# Required - at least one model provider API key
+ANTHROPIC_API_KEY=sk-ant-***
+
+# IBM i connection
+DB2i_HOST=your-ibmi-hostname
+DB2i_USER=your-ibmi-user
+DB2i_PASS=your-ibmi-password
+
+# Model configuration (optional - defaults to Anthropic Claude)
+# Format: "<provider>:<model_id>" - see https://docs.agno.com/models/providers/model-index
+# AGENT_MODEL=anthropic:claude-sonnet-4-5
+# AGENT_TEAM_MEMBER_MODEL=anthropic:claude-haiku-4-5
+
+# Optional - higher rate ceiling for web research (query_web works keyless without it)
+# PARALLEL_API_KEY=***
+```
+
+### 3. Start locally
+```sh
 docker compose up -d --build
 ```
 
-Three services come up: `agentos-db` (Postgres + pgvector), `ibmi-mcp-server` (IBM i tools), `agentos-api` (FastAPI + the IBM i Data Agent). Verify:
+- **API**: http://localhost:8000
+- **Docs**: http://localhost:8000/docs
+- **MCP server**: http://localhost:3010/healthz
+- **Database**: localhost:5432
 
-```bash
-curl -sSf http://localhost:8000/healthz
-curl -s http://localhost:8000/v1/agents | jq '.[] | .id'
-# → "ibmi-data-agent"
+### 4. Connect to control plane
+
+1. Open [os.agno.com](https://os.agno.com)
+2. Click "Add OS" → "Local"
+3. Enter `http://localhost:8000`
+
+---
+
+## The Agents
+
+### Text-to-SQL
+
+Translates natural language questions into SQL queries for Db2 for i. Handles schema discovery, query validation, and execution.
+
+**What it does:**
+
+| Capability | Description |
+|------------|-------------|
+| **Schema Discovery** | Browse schemas, tables, columns, and related objects |
+| **Query Validation** | Validates SQL syntax using IBM i's native parser before execution |
+| **DDL Inspection** | Generates the SQL DDL for any database object |
+| **Execution** | Runs validated statements (with user confirmation) |
+
+**Try it:**
+```
+What schemas are available on this system?
+What tables are in the SAMPLE schema?
+Show me all employees with a salary over 50000
 ```
 
-**Optional** — seed the shared knowledge base (table metadata, example queries, business glossary) so the agent can search it on every turn. Requires `OPENAI_API_KEY` in `.env`:
+**How it works:**
+- Uses the IBM i MCP server's **built-in tools** (`--builtin-tools` / `--execute-sql`):
+  `list_schemas`, `list_tables_in_schema`, `get_table_columns`, `get_related_objects`,
+  `describe_sql_object`, `validate_query`, and `execute_sql`
+- **Validate-first workflow** ensures queries are syntactically correct before running
+- `execute_sql` requires explicit user confirmation (HITL)
 
-```bash
-uv run python scripts/load_knowledge.py
+### Performance Monitor
+
+Monitors IBM i system performance — CPU, memory, I/O metrics — and provides actionable optimization insights.
+
+**What it monitors:**
+
+| Metric | Description |
+|--------|-------------|
+| **System Status** | CPU utilization, active jobs, system ASP |
+| **Memory Pools** | Pool sizes, faults, activity levels |
+| **HTTP Servers** | Connections, threads, request handling |
+| **Active Jobs** | CPU consumption patterns and job activity |
+
+**Try it:**
+```
+What is the current system status?
+Check memory pool utilization
+Show me the top CPU consuming jobs
 ```
 
-The agent works without this step; it just loses the knowledge-search context. See [`docs/knowledge-base.md`](docs/knowledge-base.md).
+**How it works:**
+- **MCP tools** query QSYS2 system health views and Collection Services
+- Provides prioritized recommendations with remediation steps
 
-Talk to the agent from the terminal:
+### Security Audit
 
-```bash
-uv run cli.py --agent ibmi-data-agent --prompt "list the tables in SAMPLE"
-uv run cli.py --agent ibmi-data-agent --prompt "show me all employees in department A00"
-uv run cli.py                                  # interactive REPL
+Comprehensive security vulnerability assessment and guided remediation for IBM i systems.
+
+**What it assesses:**
+
+| Area | Description |
+|------|-------------|
+| **User Privileges** | Limited capability users, special authorities (*ALLOBJ, *SAVSYS) |
+| **File Permissions** | Files readable, writable, deletable, or updatable by *PUBLIC |
+| **Attack Vectors** | Trigger attacks, rename attacks, library list poisoning |
+| **Impersonation** | User profiles vulnerable to impersonation |
+| **Command Security** | Public authority on dangerous commands, audit settings |
+
+**Try it:**
+```
+Perform a security audit of user privileges
+Which files are readable by any user?
+Are there any user profiles vulnerable to impersonation?
 ```
 
-Or via HTTP:
+**How it works:**
+- **MCP tools** query QSYS2 security views and authority tables
+- **Assessment-first workflow** — always analyzes before recommending changes
+- Remediation tools (lockdown commands) require explicit user confirmation
 
-```bash
-curl -s -X POST http://localhost:8000/agents/ibmi-data-agent/runs \
-    -F "message=describe the EMPLOYEE table" \
-    -F "stream=false"
+### Library List Security
+
+Analyzes library list configurations to protect against "Uncontrolled Search Path Element" attacks (CWE-427).
+
+**What it checks:**
+
+| Check | Description |
+|-------|-------------|
+| **QSYSLIBL / QUSRLIBL** | System and user library list configuration |
+| **CHGSYSLIBL Security** | Whether *PUBLIC can modify the system library list |
+| **Library Authority** | Libraries with excessive *PUBLIC permissions |
+| **Attack Surface** | Libraries where attackers could insert malicious objects |
+
+**Try it:**
+```
+Analyze the security of my library list configuration
+Can *PUBLIC execute CHGSYSLIBL?
+Which libraries have excessive authority?
 ```
 
-The `/agents/{agent_id}/runs` endpoint takes `multipart/form-data` (not JSON) — see the OpenAPI spec at `http://localhost:8000/docs`. Required field is `message`; useful optional fields are `stream`, `session_id`, `user_id`, and `files` for attachments.
+**How it works:**
+- **MCP tools** inspect system values and library authorities
+- **Reasoning tools** evaluate risk levels and prioritize findings
+- Explains the attack scenario for each vulnerability found
 
-## What's inside
+### PTF Management
 
-- **`agents/`** — the IBM i Data Agent module (`ibmi_data_agent.py`) and its instructions (`agents/instructions/ibmi-data-agent.md`).
-- **`tools/`** — SAMPLE-library tool YAMLs (`tools/sample.yaml`), validated against `tools/sql-tools-config.schema.json` and compiled to `tools/toolsets.json` by `parse_mcp_tools.py`.
-- **`knowledge/`** — curated SAMPLE-schema KB: one JSON per table under `knowledge/tables/`, reusable example queries in `knowledge/queries/`, business rules and gotchas in `knowledge/business/`.
-- **`docs/`** — stored Claude Code prompts for extending the template (add a tool, add an agent, extend the KB).
+Monitors PTF (Program Temporary Fix) group currency and helps plan maintenance windows.
 
-## Extending the template
+**What it tracks:**
 
-The `docs/` directory is the operator's manual. Open the repo in [Claude Code](https://claude.com/claude-code) and paste any of these:
+| Capability | Description |
+|------------|-------------|
+| **PTF Currency** | Group status, levels behind, update availability |
+| **Critical Updates** | Groups significantly behind with priority ranking |
+| **Group Details** | Installed vs. available levels for each PTF group |
+| **Maintenance Planning** | Update schedules based on criticality |
 
-| Prompt | What it does |
-|---|---|
-| `Run docs/write-new-tool.md` | The canonical tool-authoring loop: explore SAMPLE with the `ibmi` CLI → draft SQL → write the YAML → validate with `parse_mcp_tools.py` → verify live |
-| `Run docs/extend-knowledge.md` | Add a table or business rule to the SAMPLE KB; mirrors the tool-authoring loop |
-| `Run docs/create-new-agent.md` | Scaffold a second agent alongside the IBM i Data Agent |
-| `Run docs/extend-agent.md` | Add tools to (or expand) an existing agent |
-
-Plus reference docs:
-
-- [`docs/ibmi-cli.md`](docs/ibmi-cli.md) — the `ibmi` CLI workflow used throughout the template (install, env, sanity check, the smallest command surface a tool author needs)
-- [`docs/tool-design-reference.md`](docs/tool-design-reference.md) — YAML schema, conventions, worked examples; read before authoring any `tools/*.yaml`
-- [`docs/ibmi-mcp-server.md`](docs/ibmi-mcp-server.md) — how the MCP server, tool YAMLs, and `parse_mcp_tools.py` fit together
-- [`docs/knowledge-base.md`](docs/knowledge-base.md) — how `knowledge/`, the embedder, and `scripts/load_knowledge.py` work
-- [`docs/auth-optional.md`](docs/auth-optional.md) — opt in to multi-user IBM i credentials
-
-## How it fits together
-
+**Try it:**
 ```
-cli / curl ──▶ agentos-api ──▶ ibmi-mcp-server ──▶ IBM i (Db2 for i)
-                  │                  │
-                  │                  ▼
-                  │              tools/*.yaml
-                  │              (read by MCP server on boot)
-                  ▼
-              Postgres (agentos-db)
-              ├── sessions / memory / traces
-              └── ibmi_knowledge (PgVector — OpenAI embeddings)
+What is the PTF status of this system?
+Are there any critical PTF updates needed?
+Which PTF groups are most out of date?
 ```
 
-- **Agents** declare themselves in `agents/<name>.py` and register in `app/main.py`'s literal `agents=[...]` list (no registry / autoloader — explicit imports).
-- **Tools** live in `tools/*.yaml`, validated and compiled into `tools/toolsets.json` by `parse_mcp_tools.py`. Agents pick toolsets by name via `ibmi_tools("sample_data")`.
-- **Knowledge** lives in `knowledge/{tables,queries,business}/`, ingested into PgVector via `scripts/load_knowledge.py`. The agent searches it on every turn (`search_knowledge=True`).
-- **The model provider** is one env var: `DEFAULT_MODEL_ID=anthropic:claude-sonnet-4-6` (default). Swap to OpenAI / Gemini / Groq / Ollama by changing the prefix — Agno's `get_model()` resolves it.
+**How it works:**
+- **MCP tools** query PTF group info and currency data from QSYS2
+- Prioritizes by levels behind and group type (HIPER, Security, Database)
 
-## Editing the agent
+### Sample Database
 
-After editing a Python file under `agents/`, `app/`, `db/`, or `auth/`, the uvicorn reloader picks it up automatically (development mode). After adding a **new** agent file you must restart:
+Demo agent for exploring IBM's SAMPLE schema — employees, departments, projects, and salary data.
 
-```bash
-docker compose restart agentos-api
+**What it queries:**
+
+| Data | Description |
+|------|-------------|
+| **Employees** | Lookup, search, and filter by department or job |
+| **Departments** | Organizational structure and reporting relationships |
+| **Projects** | Team assignments and project status |
+| **Salary Analysis** | Department stats, bonus calculations, range filters |
+
+**Try it:**
+```
+Show me the employees in the SAMPLE database
+Who works in department A00?
+Which projects is employee 000010 assigned to?
 ```
 
-After editing a `tools/*.yaml`:
+**How it works:**
+- **MCP tools** query the standard IBM i SAMPLE schema
+- Educational focus — explains SQL concepts and IBM i conventions as it works
 
-```bash
-uv run python parse_mcp_tools.py     # regenerates tools/toolsets.json
-# YAML_AUTO_RELOAD=true in compose, so ibmi-mcp-server picks up YAML changes automatically
+### Web Research (`query_web`)
+
+Every agent can search the web through a single `query_web(question)` tool, backed by
+Parallel's MCP endpoint. A synthesizing sub-agent owns the search and returns a cited
+answer, so raw search snippets never enter the main agent's context window.
+
+- Keyless by default — set `PARALLEL_API_KEY` for a higher rate ceiling
+- Wired in `agents/utils/web_context.py`; the FastAPI lifespan in `app/main.py`
+  connects/disconnects the backend
+
+---
+
+## Project Structure
+```
+├── agents/
+│   ├── utils/
+│   │   ├── common.py                    # Shared model config + instruction blocks (+ WEB)
+│   │   ├── tools.py                     # Toolset loader for MCP tool filtering
+│   │   └── web_context.py               # Parallel web-research provider (query_web)
+│   ├── text2sql_agent.py                # Natural language to SQL (MCP built-ins)
+│   ├── performance_agent.py             # System performance monitoring
+│   ├── security_audit_agent.py          # Security vulnerability assessment
+│   ├── library_list_security_agent.py   # Library list attack prevention
+│   ├── ptf_agent.py                     # PTF group management
+│   └── sample_data_agent.py             # SAMPLE schema demo
+├── tools/                               # IBM i MCP tool YAMLs + generated toolsets.json
+├── app/
+│   ├── main.py                          # AgentOS entry point + web lifespan
+│   └── config.yaml                      # Quick prompts per agent
+├── db/
+│   ├── session.py                       # PostgresDb factory
+│   └── url.py                           # Connection URL builder
+├── scripts/                             # Helper scripts (format, validate, build, ...)
+├── parse_mcp_tools.py                   # tools/*.yaml -> tools/toolsets.json
+├── compose.yaml                         # Docker Compose stack
+└── pyproject.toml                       # Dependencies
 ```
 
-## Validation gate (before committing)
+---
 
-```bash
-bash scripts/format.sh        # ruff format
-bash scripts/validate.sh      # ruff check + mypy + schema validation
-uv run python -m evals -v     # eval suite
+## Common Tasks
+
+### Add your own agent
+
+1. Create `agents/my_agent.py`:
+```python
+from agno.agent import Agent
+
+from agents.utils.common import AGENT_MODEL
+from db import get_postgres_db
+
+my_agent = Agent(
+    id="my-agent",
+    name="My Agent",
+    model=AGENT_MODEL,
+    db=get_postgres_db(),
+    instructions="You are a helpful assistant.",
+)
 ```
 
-`scripts/validate.sh` runs `parse_mcp_tools.py` as part of the gate, so any YAML schema drift fails CI. The CI workflow at `.github/workflows/validate.yml` runs the same checks on every push.
+2. Register in `app/main.py`:
+```python
+from agents.my_agent import my_agent
 
-## Production deployment
-
-The template targets **Docker** or **Podman** — `compose.yaml` is the source of truth, no platform-specific glue. Bring it up the same way in production as in dev, with a separate env file for secrets:
-
-```bash
-docker compose --env-file .env.production up -d
-# or
-podman compose --env-file .env.production up -d
+agent_os = AgentOS(
+    name="IBM i AgentOS",
+    agents=[
+        text2sql_agent,
+        performance_agent,
+        security_audit_agent,
+        library_list_agent,
+        ptf_agent,
+        sample_agent,
+        my_agent,
+    ],
+    ...
+)
 ```
 
-For an image-based deploy (push the API container to a registry, run it next to your IBM i):
+3. Restart: `docker compose restart agentos-api`
 
-```bash
-docker build -t your-registry/ixora-template:latest .
-docker push  your-registry/ixora-template:latest
+### Add tools to an agent
+
+IBM i SQL tools are defined as YAML under `tools/` and exposed by the MCP server. Add a
+`tools/*.yaml`, regenerate the index, and reference the toolset from the agent:
+
+```sh
+uv run python parse_mcp_tools.py    # tools/*.yaml -> tools/toolsets.json
+```
+```python
+from agents.utils.tools import get_toolset
+
+tools = [MCPTools(url=MCP_URL, transport="streamable-http", include_tools=get_toolset("my_toolset"))]
 ```
 
-Then run on the production host with a `compose.yaml` that pulls the published image instead of `build:`. The IBM i MCP server image (`ghcr.io/ibm/ibmi-mcp-server`) is already published — no build step needed.
+Agno also ships 100+ tool integrations — see the [full list](https://docs.agno.com/tools/toolkits).
 
-**Two things you own at deploy time:**
+### Add dependencies
 
-1. **Network** to the IBM i. The MCP server needs Db2-for-i port 8076 reachable. Co-locate it on a host inside the IBM i's network, or open a VPN tunnel.
-2. **Where Postgres lives.** `agentos-db` in the template is a single-host container with a local volume — fine for a small deployment, but for HA replace it with a managed Postgres + pgvector (e.g. AWS RDS with the extension enabled, Aiven, etc.) and point `DB_HOST` at it.
+1. Edit `pyproject.toml`
+2. Regenerate requirements: `./scripts/generate_requirements.sh`
+3. Rebuild: `docker compose up -d --build`
 
-## Multi-user auth (opt-in)
+### Use a different model provider
 
-Default is single-tenant (one shared IBM i identity from `.env`). For per-user identities:
+All agents share one model configuration via environment variables:
 
-```bash
-echo "AUTH_ENABLED=true" >> .env
-bash scripts/generate_mcp_keys.sh
-docker compose -f compose.yaml -f compose.auth.yaml up -d
+1. Add your API key to `.env` (e.g., `OPENAI_API_KEY`)
+2. Set the model env var in `.env`:
+```sh
+AGENT_MODEL=openai:gpt-4o
+# or google:gemini-2.0-flash, groq:llama-3.3-70b-versatile, ollama:llama3.3, ...
+# Full list: https://docs.agno.com/models/providers/model-index
+```
+3. Restart: `docker compose restart agentos-api`
+
+---
+
+## Local Development
+
+For development without the full Docker stack:
+```sh
+# Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Setup environment
+./scripts/venv_setup.sh
+source .venv/bin/activate
+
+# Start PostgreSQL + MCP server (required)
+docker compose up -d agentos-db ibmi-mcp-server
+
+# Run the app
+python -m app.main
 ```
 
-Then create an API key and register a connection. Full walkthrough: [`docs/auth-optional.md`](docs/auth-optional.md).
+### Regenerate toolsets.json
 
-## License
+After adding or editing tool YAML files in `tools/`, regenerate the consolidated toolset mapping:
 
-MIT. See `LICENSE`.
+```sh
+uv run python parse_mcp_tools.py
+```
+
+This parses every YAML in `tools/`, validates against the MCP server schema, and writes
+`tools/toolsets.json`. Agents load toolsets from this file at startup via `get_toolset()`.
+
+---
+
+## Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `ANTHROPIC_API_KEY` | Yes* | - | Anthropic API key (*or another provider's key) |
+| `DB2i_HOST` | Yes | - | IBM i hostname or IP address |
+| `DB2i_USER` | Yes | - | IBM i user profile |
+| `DB2i_PASS` | Yes | - | IBM i password |
+| `AGENT_MODEL` | No | `anthropic:claude-sonnet-4-5` | Model for agents ([provider index](https://docs.agno.com/models/providers/model-index)) |
+| `AGENT_TEAM_MEMBER_MODEL` | No | `anthropic:claude-haiku-4-5` | Lightweight model for sub-agents |
+| `PARALLEL_API_KEY` | No | - | Parallel key for `query_web` (keyless works without it) |
+| `OPENAI_API_KEY` | No | - | Embedder for agentic memory recall |
+| `MCP_SERVER_VERSION` | No | `v0.5.1` | `ghcr.io/ibm/ibmi-mcp-server` image tag |
+| `DB_HOST` | No | `localhost` | PostgreSQL host |
+| `DB_PORT` | No | `5432` | PostgreSQL port |
+| `DB_USER` | No | `ai` | PostgreSQL user |
+| `DB_PASS` | No | `ai` | PostgreSQL password |
+| `DB_DATABASE` | No | `ai` | PostgreSQL database name |
+| `RUNTIME_ENV` | No | `prd` | Set to `dev` for auto-reload |
+
+---
+
+## Learn More
+
+- [IBM i MCP Server](https://github.com/IBM/ibmi-mcp-server)
+- [Agno Documentation](https://docs.agno.com)
+- [AgentOS Documentation](https://docs.agno.com/agent-os/introduction)
+- [Tools & Integrations](https://docs.agno.com/tools/toolkits)
+- [Discord Community](https://agno.com/discord)

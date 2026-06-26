@@ -3,7 +3,7 @@
 > Claude Code prompt. Open Claude Code in this repo and paste:
 > `Run docs/extend-agent.md`
 
-You are pair-programming with the user to give an existing IBM i agent a new capability. That means: design one or more SQL tools, write them as a new `tools/*.yaml`, regenerate `tools/toolsets.json`, wire the toolset into the agent's `ibmi_tools([...])`, smoke-test.
+You are pair-programming with the user to give an existing IBM i agent a new capability. That means: design one or more SQL tools, write them as a new `tools/*.yaml`, regenerate `tools/toolsets.json`, wire the toolset into the agent's `MCPTools(... include_tools=get_toolset("..."))`, smoke-test.
 
 The schema, conventions, and pitfalls live in **[`docs/tool-design-reference.md`](tool-design-reference.md)** — read it before authoring YAML. The end-to-end tool-authoring loop with worked SAMPLE examples lives in **[`docs/write-new-tool.md`](write-new-tool.md)**. CLI background: [`docs/ibmi-cli.md`](ibmi-cli.md). This doc orchestrates the iterative agent-extension flow; those are the field manuals.
 
@@ -12,7 +12,7 @@ Loop: clarify → introspect → validate SQL → preview → author YAML → sm
 ## 0. Preconditions
 
 - Stack up: `curl -sSf http://localhost:8000/healthz` and `curl -sSf http://localhost:3010/healthz` both return 200.
-- The user has named (a) the existing agent (slug — the SAMPLE Data Agent is `ibmi-data-agent`) and (b) the capability they want to add.
+- The user has named (a) the existing agent (slug — the SAMPLE Data Agent is `ibmi-sample`) and (b) the capability they want to add.
 - `ibmi` CLI working: `ibmi sql "VALUES CURRENT_DATE"` returns today's date. Used for introspection and SQL validation. Setup: [`docs/ibmi-cli.md`](ibmi-cli.md).
 
 If the capability isn't naturally an IBM i SQL tool (e.g. it's a new agent persona, or it's purely CL with no SQL surface), route the user to [`docs/create-new-agent.md`](create-new-agent.md) instead.
@@ -86,13 +86,13 @@ This is the equivalent of ixora's `agent_builder.py` "preview-before-register" g
 
 ## 5. Author the YAML
 
-Read [`docs/tool-design-reference.md`](tool-design-reference.md) §2–§6 before authoring. Then create `tools/<new-toolset>.yaml` (or extend `tools/sample.yaml` if the new tool naturally fits the SAMPLE toolset). **One toolset per file** is the convention.
+Read [`docs/tool-design-reference.md`](tool-design-reference.md) §2–§6 before authoring. Then create `tools/<new-toolset>.yaml` (or extend `tools/employee-info.yaml` if the new tool naturally fits the SAMPLE toolset). **One toolset per file** is the convention.
 
 Skeleton (fill in from your plan + introspection):
 
 ```yaml
 # Optional: redeclare sources only if this file is standalone.
-# Otherwise rely on sources declared in another tools/*.yaml (e.g. sample.yaml).
+# Otherwise rely on sources declared in another tools/*.yaml (e.g. employee-info.yaml).
 
 tools:
   <tool_name>:
@@ -159,36 +159,41 @@ docker compose restart ibmi-mcp-server           # nuclear option
 
 ## 8. Wire into the agent
 
-Edit the agent module (`agents/<slug>.py`) and add the new toolset to its `ibmi_tools(...)` call:
+Edit the agent module (`agents/<slug>.py`) and add the new toolset to its `MCPTools(...)` call. To combine the new toolset with the agent's existing one, swap `get_toolset("...")` for `get_toolsets("...", "...")` (both from `agents.utils.tools`):
 
 ```python
-tools = collect_tools(
-    ibmi_tools(
-        [
-            "<existing_toolset_a>",
-            "<existing_toolset_b>",
+from agents.utils.tools import get_toolsets
+
+tools = [
+    MCPTools(
+        url=MCP_URL,
+        transport="streamable-http",
+        timeout_seconds=30,
+        include_tools=get_toolsets(
+            "<existing_toolset>",
             "<new_toolset>",                       # added
-        ],
-        include_tools=CORE_SQL_TOOLS,
-        requires_confirmation_tools=SQL_CONFIRMATION_TOOLS,
+        ),
+        # If any tool in the new toolset is modifying (readOnly: false):
+        # requires_confirmation_tools=["<modifying_tool>"],
     ),
-    _web,
-)
+    *web_tools(),
+]
 ```
 
 If any tool in the new toolset is modifying (`readOnly: false`), add its name to `requires_confirmation_tools` too.
 
-Then update the agent's instruction markdown (`agents/instructions/ibmi-<slug>.md`) — add a routing rule that tells the agent **when** to reach for the new toolset. Without this, the agent will see new tools but not know when to pick them.
+Then update the agent's inline `INSTRUCTIONS` f-string in `agents/<slug>.py` — add a routing rule that tells the agent **when** to reach for the new toolset. Without this, the agent will see new tools but not know when to pick them.
 
 ## 9. Restart and smoke test
 
 ```bash
 docker compose restart agentos-api
 sleep 2
-uv run python cli.py --agent <slug> --prompt "<question only the new toolset can answer>"
+curl -sS -X POST http://localhost:8000/agents/ibmi-<slug>/runs \
+  -F message='<question only the new toolset can answer>'
 ```
 
-Watch the response. Did the agent call the new tool? Was the output correct? If the agent ignored the new toolset, sharpen the routing language in the instruction markdown (step 8) and try again.
+Watch the response. Did the agent call the new tool? Was the output correct? If the agent ignored the new toolset, sharpen the routing language in the inline `INSTRUCTIONS` (step 8) and try again.
 
 ## 10. "Anything else?"
 

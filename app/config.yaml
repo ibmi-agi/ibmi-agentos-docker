@@ -1,7 +1,26 @@
 chat:
   quick_prompts:
-    ibmi-data-agent:
-      - "What tables are in the SAMPLE library?"
-      - "Show employees in department A00"
-      - "What's the average salary by department?"
-      - "Who manages department D11?"
+    ibmi-text2sql:
+      - "What schemas are available on this system?"
+      - "Show me the structure of the QCUSTCDT table"
+      - "List the tables in the SAMPLE schema"
+    ibmi-performance-monitor:
+      - "What is the current system status?"
+      - "Show me memory pool utilization"
+      - "Which jobs are consuming the most CPU?"
+    ibmi-security-audit:
+      - "Perform a security audit of user privileges"
+      - "List files readable by any user"
+      - "Check for impersonation vulnerabilities"
+    ibmi-library-list-ops:
+      - "Analyze the security of my library list configuration"
+      - "Is CHGSYSLIBL restricted to security officers?"
+      - "Find libraries vulnerable to search path attacks"
+    ibmi-ptf-management:
+      - "What is the PTF status of this system?"
+      - "Are there any critical PTF updates needed?"
+      - "Show me outdated PTF groups"
+    ibmi-sample:
+      - "Show me employees in the SAMPLE database"
+      - "Find employees in the Operations department"
+      - "What projects is employee 000010 working on?"
