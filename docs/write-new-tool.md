@@ -3,7 +3,7 @@
 > Claude Code prompt. Open Claude Code in this repo and paste:
 > `Run docs/write-new-tool.md`
 
-You are authoring a new SQL tool for this template. The end product is a `tools/*.yaml` entry that the `ibmi-mcp-server` publishes to the IBM i Data Agent. The loop is: **explore with `ibmi` → draft SQL → write YAML → validate → verify live → commit**.
+You are authoring a new SQL tool for this template. The end product is a `tools/*.yaml` entry that the `ibmi-mcp-server` publishes to the IBM i agents. The loop is: **explore with `ibmi` → draft SQL → write YAML → validate → verify live → commit**.
 
 The `ibmi` CLI is the only database utility you use here. Background and command surface: [`docs/ibmi-cli.md`](ibmi-cli.md). YAML schema reference: [`docs/tool-design-reference.md`](tool-design-reference.md).
 
@@ -91,7 +91,7 @@ FETCH FIRST :row_limit ROWS ONLY
 
 ## 3. Write the YAML
 
-Either extend the existing `tools/sample.yaml` (preferred when the new tool belongs alongside the SAMPLE tools) or create a new `tools/<name>.yaml` (one toolset per file is the convention).
+Either extend the existing `tools/employee-info.yaml` (preferred when the new tool belongs alongside the SAMPLE tools) or create a new `tools/<name>.yaml` (one toolset per file is the convention).
 
 Open [`docs/tool-design-reference.md`](tool-design-reference.md) §2–§6 before authoring. Required shape:
 
@@ -178,7 +178,7 @@ docker compose logs ibmi-mcp-server --tail 50
 Then drive the tool from the agent — paste an example prompt that should route to it:
 
 ```bash
-curl -sS -X POST http://localhost:8000/agents/ibmi-data-agent/runs \
+curl -sS -X POST http://localhost:8000/agents/ibmi-sample/runs \
   -F "message=List employees in department A00" \
   -F "user_id=claude-write-new-tool" \
   -F "stream=false" \
@@ -201,9 +201,9 @@ If the agent doesn't pick the new tool, the tool's `description:` text isn't rou
 Include the regenerated `tools/toolsets.json` in the commit — the Python side reads it to resolve toolset name → tool list.
 
 ```bash
-git status     # tools/sample.yaml (or new file), tools/toolsets.json
-git add tools/sample.yaml tools/toolsets.json
-git commit -m "tools(sample): add list_employees_by_department"
+git status     # tools/employee-info.yaml (or new file), tools/toolsets.json
+git add tools/employee-info.yaml tools/toolsets.json
+git commit -m "tools(employee-info): add list_employees_by_department"
 ```
 
 That's the loop. Cycle back to step 1 for the next tool — narrow, one workflow at a time.

@@ -1,19 +1,18 @@
 [project]
-name = "ixora-template"
+name = "ibmi-agentos-docker"
 version = "0.1.0"
-description = "Starter template for building IBM i agents on Agno AgentOS."
+description = "Starter template for building IBM i agents on Agno AgentOS (Docker)."
 requires-python = ">=3.12,<4"
 readme = "README.md"
 license-files = ["LICENSE"]
-authors = [{ name = "Ixora Template" }]
+authors = [{ name = "IBM i AgentOS" }]
 
 dependencies = [
-  "agno[os]",
+  "agno[os]==2.6.20",
   "anthropic",
   "fastapi[standard]",
   "mcp",
   "openai",
-  "parallel-web",
   "pgvector",
   "psycopg[binary]",
   "python-dotenv",
@@ -23,15 +22,13 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["mypy", "ruff"]
-# Install with: uv pip install -e ".[auth]" — enables optional multi-user MCP auth.
-auth = ["cryptography", "httpx", "rich"]
 
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["agents*", "app*", "auth*", "db*", "evals*", "learning*"]
+include = ["agents*", "app*", "db*"]
 
 [tool.ruff]
 line-length = 120
@@ -48,7 +45,7 @@ plugins = ["pydantic.mypy"]
 exclude = [".venv*"]
 
 [[tool.mypy.overrides]]
-module = ["pgvector.*", "agno.*", "httpx.*", "mcp.*", "sqlalchemy.*", "fastapi.*", "yaml.*", "dotenv.*", "pytest.*"]
+module = ["agno.*", "mcp.*", "sqlalchemy.*", "fastapi.*", "yaml.*", "dotenv.*"]
 ignore_missing_imports = true
 
 [tool.uv.pip]

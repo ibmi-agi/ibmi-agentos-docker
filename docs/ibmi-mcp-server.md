@@ -20,7 +20,9 @@ The MCP server image is published at `ghcr.io/ibm/ibmi-mcp-server` and pinned in
 
 ## The `tools/` directory
 
-The slim template ships a single tool YAML — `tools/sample.yaml` — wiring the `sample_data` toolset (schema discovery + SAMPLE.EMPLOYEE access). Add more `tools/*.yaml` files as you grow the agent's surface; see [`docs/write-new-tool.md`](write-new-tool.md) for the authoring loop.
+The template ships several tool YAMLs — `tools/employee-info.yaml` (SAMPLE-schema employee/department/project toolsets), `tools/performance.yaml`, `tools/security-ops.yaml`, `tools/library-list-security.yaml`, and `tools/ptf_tools.yaml`. Add more `tools/*.yaml` files as you grow an agent's surface; see [`docs/write-new-tool.md`](write-new-tool.md) for the authoring loop.
+
+> The `ibmi-text2sql` agent is the exception: it uses the MCP server's **built-in** tools (`list_schemas`, `list_tables_in_schema`, `get_table_columns`, `get_related_objects`, `describe_sql_object`, `validate_query`, `execute_sql`), enabled in `compose.yaml` via `IBMI_ENABLE_DEFAULT_TOOLS` / `IBMI_ENABLE_EXECUTE_SQL`. It does not load a YAML toolset.
 
 Every file under `tools/` is one of:
 
@@ -71,7 +73,7 @@ Three things to know:
 
 1. **`source`** — the connection definition. The template's single source is `ibmi-sample`, parameterized from env vars. Every tool references the same source.
 2. **`security.readOnly: true`** — the server validates that the statement is read-only. Modifying tools (UPDATE, DELETE, CL commands) must omit this or set `false` and pair it with `annotations.destructiveHint: true`.
-3. **`toolsets`** — groups of tools agents can grab as a unit (via `ibmi_tools(["sample_data"])`). Tools can belong to multiple toolsets if they're useful in multiple contexts.
+3. **`toolsets`** — groups of tools agents can grab as a unit (via `MCPTools(... include_tools=get_toolset("sample_data"))`). Tools can belong to multiple toolsets if they're useful in multiple contexts.
 
 Full schema: `tools/sql-tools-config.schema.json`.
 
@@ -116,27 +118,22 @@ curl -sSf http://localhost:3010/healthz
 
 If the new version breaks a tool YAML (schema changed, validator stricter), `parse_mcp_tools.py` will fail and tell you which file.
 
-## Running outside Docker
+## Exercising an agent
 
-For local agent development without the full stack, you can run just the MCP server:
+The stack has no host CLI. Drive an agent through the AgentOS HTTP API:
 
 ```bash
-docker compose up -d ibmi-mcp-server agentos-db
-uv run python cli.py --agent ibmi-data-agent --prompt "list the tables in SAMPLE"
+curl -sS -X POST http://localhost:8000/agents/ibmi-sample/runs \
+  -F message='list the tables in SAMPLE'
 ```
 
-`cli.py` overrides `MCP_URL` to `http://localhost:3010/mcp` so it can reach the docker-published port from the host.
+Or run a single agent module directly inside the container:
 
-## Auth modes
+```bash
+docker compose exec agentos-api python -m agents.sample_data_agent
+```
 
-The MCP server itself supports two modes:
-
-| Mode | Env | Behavior |
-|---|---|---|
-| `none` | `MCP_AUTH_MODE=none` (default) | Shared credentials from `.env` (`DB2i_USER`/`DB2i_PASS`). One identity for every request. |
-| `ibmi` | `MCP_AUTH_MODE=ibmi` | Each request carries its own encrypted IBM i credentials (RSA-wrapped, AES-encrypted). Per-user identity. |
-
-The `ibmi` mode requires this template's optional auth layer. See [`docs/auth-optional.md`](auth-optional.md).
+The MCP server is single-tenant: it connects with one shared IBM i identity (`DB2i_USER` / `DB2i_PASS` from `.env`) for every request — there is no per-user auth layer.
 
 ## Troubleshooting
 

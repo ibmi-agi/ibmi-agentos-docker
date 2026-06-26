@@ -29,7 +29,7 @@ sources:
     ignore-unauthorized: true   # accept self-signed certs
 ```
 
-You usually don't redefine `sources:` in new YAMLs — declare it once (in `tools/sample.yaml`) and reference it from any additional `tools/*.yaml` files by name.
+You usually don't redefine `sources:` in new YAMLs — declare it once (in `tools/employee-info.yaml`) and reference it from any additional `tools/*.yaml` files by name.
 
 ## 2. Tool fields
 
@@ -118,7 +118,7 @@ Convention in this template: SELECT-only tools always set `readOnlyHint: true` a
 
 ## 5. Toolsets
 
-Toolsets group tools so agents can grab them as a unit (`ibmi_tools(["sample_data"])`).
+Toolsets group tools so agents can grab them as a unit (`MCPTools(... include_tools=get_toolset("sample_data"))`).
 
 ```yaml
 toolsets:
@@ -134,9 +134,9 @@ toolsets:
 Required: `tools:` (non-empty list). A tool can belong to multiple toolsets — just list it in each.
 
 Conventions:
-- **One toolset per file.** `tools/<toolset>.yaml`. Mirrors the in-repo example (`tools/sample.yaml`).
+- **One toolset per file.** `tools/<toolset>.yaml`. Mirrors the in-repo example (`tools/employee-info.yaml`).
 - **Keep toolsets cohesive.** A toolset is a *workflow* — "SAMPLE data", "security audit". Not a category dump.
-- **Names are kebab/snake_case.** File: `sample.yaml` or `daily-health.yaml`. Toolset key: `sample_data` or `daily_health`. Pick one; we use snake for the key, kebab for the filename.
+- **Names are kebab/snake_case.** File: `employee-info.yaml` or `daily-health.yaml`. Toolset key: `sample_data` or `daily_health`. Pick one; we use snake for the key, kebab for the filename.
 - **Don't over-group.** If three tools serve very different intents, split into two toolsets.
 
 ## 6. Worked examples
@@ -289,7 +289,7 @@ When deciding *what* tools to build:
 - **Narrow scope beats kitchen sink.** Five focused tools an agent can route between beat one `run_any_sql` tool that the agent has to compose every time.
 - **Parameterize what varies.** If two intents differ only by a `WHERE` clause value, that's one parameterized tool, not two.
 - **Validate at the SQL layer.** Use `enum` on parameters whose values are a fixed set (status codes, message types). Use `min`/`max` on row limits.
-- **AI-facing descriptions.** The `description:` is read by the agent. Tell it *when* to use the tool, *what* it returns, and *how it differs* from sibling tools. See `tools/sample.yaml` for good examples.
+- **AI-facing descriptions.** The `description:` is read by the agent. Tell it *when* to use the tool, *what* it returns, and *how it differs* from sibling tools. See `tools/employee-info.yaml` for good examples.
 - **Default to read-only.** Make a deliberate decision to allow writes; never default to it.
 - **One toolset, one workflow.** A toolset is the unit of agent capability — design it as a coherent set of operations the agent will use together.
 

@@ -1,9 +1,197 @@
 {
-  "sample_data": {
+  "employee_information": {
     "tools": [
-      "list_sample_tables",
-      "describe_sample_table",
-      "list_sample_relationships",
+      "get_employee_details",
+      "find_employees_by_department",
+      "find_employees_by_job",
+      "search_employees"
+    ],
+    "source": "employee-info.yaml",
+    "title": "Employee Information",
+    "description": "Tools for retrieving and analyzing employee data",
+    "tool_metadata": {
+      "get_employee_details": {
+        "description": "Retrieve detailed information about an employee including department and manager",
+        "parameters": [
+          {
+            "name": "employee_id",
+            "type": "string",
+            "description": "Employee ID (e.g., '000010') - Must be 6 digits",
+            "required": true,
+            "pattern": "^[0-9]{6}$"
+          }
+        ]
+      },
+      "find_employees_by_department": {
+        "description": "List employees in a specific department",
+        "parameters": [
+          {
+            "name": "department_id",
+            "type": "string",
+            "description": "Department ID - Select from predefined departments",
+            "required": true,
+            "enum": [
+              "A00",
+              "B01",
+              "C01",
+              "D01",
+              "E01"
+            ]
+          }
+        ]
+      },
+      "find_employees_by_job": {
+        "description": "Find employees with a specific job title",
+        "parameters": [
+          {
+            "name": "job_title",
+            "type": "string",
+            "description": "Job title - Select from common job titles",
+            "required": true,
+            "enum": [
+              "MANAGER",
+              "ANALYST",
+              "DESIGNER",
+              "CLERK",
+              "SALESREP",
+              "PRES"
+            ]
+          }
+        ]
+      },
+      "search_employees": {
+        "description": "Search for employees by name with pagination",
+        "parameters": [
+          {
+            "name": "name_search",
+            "type": "string",
+            "description": "Name to search for (partial match)",
+            "required": true,
+            "minLength": 2
+          },
+          {
+            "name": "page_size",
+            "type": "integer",
+            "description": "Number of results per page",
+            "default": 10,
+            "min": 1,
+            "max": 100
+          },
+          {
+            "name": "page_number",
+            "type": "integer",
+            "description": "Page number (starting from 1)",
+            "default": 1,
+            "min": 1
+          }
+        ]
+      }
+    }
+  },
+  "project_management": {
+    "tools": [
+      "get_employee_projects",
+      "find_project_team_members"
+    ],
+    "source": "employee-info.yaml",
+    "title": "Project Management",
+    "description": "Tools for managing project assignments and team members",
+    "tool_metadata": {
+      "get_employee_projects": {
+        "description": "List projects an employee is working on",
+        "parameters": [
+          {
+            "name": "employee_id",
+            "type": "string",
+            "description": "Employee ID (e.g., '000010') - Must be 6 digits",
+            "required": true,
+            "pattern": "^[0-9]{6}$"
+          },
+          {
+            "name": "include_completed",
+            "type": "boolean",
+            "description": "Include completed projects (true) or only active projects (false)",
+            "default": true
+          }
+        ]
+      },
+      "find_project_team_members": {
+        "description": "Find all employees working on specific projects. Accepts a JSON array of project IDs.",
+        "parameters": [
+          {
+            "name": "project_ids",
+            "type": "array",
+            "itemType": "string",
+            "description": "Array of project IDs to search for. Must be a JSON array, not a string. Example: [\"MA2100\", \"AD3100\", \"AD3110\"]",
+            "required": true,
+            "minLength": 1,
+            "maxLength": 10
+          }
+        ]
+      }
+    }
+  },
+  "salary_analysis": {
+    "tools": [
+      "get_department_salary_stats",
+      "calculate_employee_bonus"
+    ],
+    "source": "employee-info.yaml",
+    "title": "Salary Analysis",
+    "description": "Tools for analyzing salary data across departments",
+    "tool_metadata": {
+      "get_department_salary_stats": {
+        "description": "Salary statistics by department with optional salary range filter",
+        "parameters": [
+          {
+            "name": "department_id",
+            "type": "string",
+            "description": "Department ID (e.g., 'A00') or '*ALL' for all departments",
+            "default": "*ALL"
+          },
+          {
+            "name": "min_salary",
+            "type": "integer",
+            "description": "Minimum salary filter (optional)",
+            "min": 0,
+            "max": 100000,
+            "default": 0
+          },
+          {
+            "name": "max_salary",
+            "type": "integer",
+            "description": "Maximum salary filter (optional)",
+            "min": 0,
+            "max": 100000,
+            "default": 100000
+          }
+        ]
+      },
+      "calculate_employee_bonus": {
+        "description": "Calculate potential bonus for an employee based on performance rating and salary",
+        "parameters": [
+          {
+            "name": "employee_id",
+            "type": "string",
+            "description": "Employee ID (e.g., '000010')",
+            "required": true,
+            "pattern": "^[0-9]{6}$"
+          },
+          {
+            "name": "performance_multiplier",
+            "type": "float",
+            "description": "Performance rating multiplier (0.0-0.3)",
+            "required": true,
+            "min": 0.0,
+            "max": 0.3,
+            "default": 0.1
+          }
+        ]
+      }
+    }
+  },
+  "sample_all": {
+    "tools": [
       "get_employee_details",
       "find_employees_by_department",
       "find_employees_by_job",
@@ -13,28 +201,10 @@
       "calculate_employee_bonus",
       "search_employees"
     ],
-    "source": "sample.yaml",
-    "title": "SAMPLE Data",
-    "description": "Schema discovery + employee data for the Db2 for i SAMPLE library",
+    "source": "employee-info.yaml",
+    "title": "Sample Database - All Tools",
+    "description": "Complete set of employee information, project management, and salary analysis tools",
     "tool_metadata": {
-      "list_sample_tables": {
-        "description": "List all tables, views, and physical files in the SAMPLE library\nwith their text descriptions and object types. Use this first when\nyou need to know which objects are available in SAMPLE before\nwriting a query.\n"
-      },
-      "describe_sample_table": {
-        "description": "Describe the columns of a table in the SAMPLE library: name, data\ntype, length, numeric scale, nullability, column text, and ordinal\nposition. Pass the unqualified table name (e.g., 'EMPLOYEE'). Use\nthis before writing any column-referencing SQL against a SAMPLE\ntable.\n",
-        "parameters": [
-          {
-            "name": "table_name",
-            "type": "string",
-            "description": "Unqualified table name in the SAMPLE library (e.g., 'EMPLOYEE')",
-            "required": true,
-            "pattern": "^[A-Z_][A-Z0-9_]*$"
-          }
-        ]
-      },
-      "list_sample_relationships": {
-        "description": "List foreign-key relationships defined in the SAMPLE library:\nconstraint name, child table/column, referenced parent table/column,\nand the delete/update rules. Use this to understand how SAMPLE\ntables join before writing multi-table queries.\n"
-      },
       "get_employee_details": {
         "description": "Retrieve detailed information about an employee including department and manager",
         "parameters": [
@@ -190,6 +360,475 @@
             "min": 1
           }
         ]
+      }
+    }
+  },
+  "library_list_configuration": {
+    "tools": [
+      "get_system_library_list_config",
+      "get_user_library_list_config",
+      "get_system_library_list_details",
+      "get_complete_library_list"
+    ],
+    "source": "library-list-security.yaml",
+    "title": "Library List Configuration",
+    "description": "Tools for retrieving and analyzing library list configuration",
+    "tool_metadata": {
+      "get_system_library_list_config": {
+        "description": "Retrieve the system portion of the library list configuration from system values"
+      },
+      "get_user_library_list_config": {
+        "description": "Retrieve the user portion of the library list configuration from system values"
+      },
+      "get_system_library_list_details": {
+        "description": "Get detailed information about the system portion of the library list"
+      },
+      "get_complete_library_list": {
+        "description": "Get detailed information about the complete library list"
+      }
+    }
+  },
+  "library_list_security": {
+    "tools": [
+      "check_chgsyslibl_security",
+      "analyze_library_list_security",
+      "find_vulnerable_libraries",
+      "check_library_security"
+    ],
+    "source": "library-list-security.yaml",
+    "title": "Library List Security",
+    "description": "Tools for analyzing and identifying security vulnerabilities in the library list",
+    "tool_metadata": {
+      "check_chgsyslibl_security": {
+        "description": "Check if the Change System Library List command is properly secured (should be *EXCLUDE for *PUBLIC)"
+      },
+      "analyze_library_list_security": {
+        "description": "Analyze the security configuration of all libraries in the library list"
+      },
+      "find_vulnerable_libraries": {
+        "description": "Identify libraries in the library list with *PUBLIC authority not set to *USE (potential security risk)"
+      },
+      "check_library_security": {
+        "description": "Check the security configuration of a specific library",
+        "parameters": [
+          {
+            "name": "library_name",
+            "type": "string",
+            "description": "Name of the library to check",
+            "required": true
+          }
+        ]
+      }
+    }
+  },
+  "library_list_security_assessment": {
+    "tools": [
+      "get_system_library_list_config",
+      "get_user_library_list_config",
+      "check_chgsyslibl_security",
+      "find_vulnerable_libraries"
+    ],
+    "source": "library-list-security.yaml",
+    "title": "Library List Security Assessment",
+    "description": "Comprehensive tools for assessing the security of the library list configuration",
+    "tool_metadata": {
+      "get_system_library_list_config": {
+        "description": "Retrieve the system portion of the library list configuration from system values"
+      },
+      "get_user_library_list_config": {
+        "description": "Retrieve the user portion of the library list configuration from system values"
+      },
+      "check_chgsyslibl_security": {
+        "description": "Check if the Change System Library List command is properly secured (should be *EXCLUDE for *PUBLIC)"
+      },
+      "find_vulnerable_libraries": {
+        "description": "Identify libraries in the library list with *PUBLIC authority not set to *USE (potential security risk)"
+      }
+    }
+  },
+  "library_list_all": {
+    "tools": [
+      "get_system_library_list_config",
+      "get_system_library_list_details",
+      "check_chgsyslibl_security",
+      "get_user_library_list_config",
+      "get_complete_library_list",
+      "analyze_library_list_security",
+      "find_vulnerable_libraries",
+      "check_library_security"
+    ],
+    "source": "library-list-security.yaml",
+    "title": "Library List Security - All Tools",
+    "description": "Complete set of library list configuration and security analysis tools",
+    "tool_metadata": {
+      "get_system_library_list_config": {
+        "description": "Retrieve the system portion of the library list configuration from system values"
+      },
+      "get_system_library_list_details": {
+        "description": "Get detailed information about the system portion of the library list"
+      },
+      "check_chgsyslibl_security": {
+        "description": "Check if the Change System Library List command is properly secured (should be *EXCLUDE for *PUBLIC)"
+      },
+      "get_user_library_list_config": {
+        "description": "Retrieve the user portion of the library list configuration from system values"
+      },
+      "get_complete_library_list": {
+        "description": "Get detailed information about the complete library list"
+      },
+      "analyze_library_list_security": {
+        "description": "Analyze the security configuration of all libraries in the library list"
+      },
+      "find_vulnerable_libraries": {
+        "description": "Identify libraries in the library list with *PUBLIC authority not set to *USE (potential security risk)"
+      },
+      "check_library_security": {
+        "description": "Check the security configuration of a specific library",
+        "parameters": [
+          {
+            "name": "library_name",
+            "type": "string",
+            "description": "Name of the library to check",
+            "required": true
+          }
+        ]
+      }
+    }
+  },
+  "performance": {
+    "tools": [
+      "system_status",
+      "system_activity",
+      "remote_connections",
+      "memory_pools",
+      "temp_storage_buckets",
+      "unnamed_temp_storage",
+      "http_server",
+      "system_values",
+      "collection_services",
+      "collection_categories",
+      "active_job_info"
+    ],
+    "source": "performance.yaml",
+    "tool_metadata": {
+      "system_status": {
+        "description": "Overall system performance statistics with CPU, memory, and I/O metrics",
+        "parameters": []
+      },
+      "system_activity": {
+        "description": "Current system activity information including active jobs and resource utilization",
+        "parameters": []
+      },
+      "remote_connections": {
+        "description": "Number of established remote connections to the system",
+        "parameters": []
+      },
+      "memory_pools": {
+        "description": "Information about memory pool sizes and thread utilization",
+        "parameters": []
+      },
+      "temp_storage_buckets": {
+        "description": "Information about named temporary storage usage",
+        "parameters": []
+      },
+      "unnamed_temp_storage": {
+        "description": "Total usage of unnamed temporary storage buckets",
+        "parameters": []
+      },
+      "http_server": {
+        "description": "Performance metrics for HTTP servers including connections and request handling",
+        "parameters": []
+      },
+      "system_values": {
+        "description": "Current numeric system values that affect performance",
+        "parameters": []
+      },
+      "collection_services": {
+        "description": "Current configuration of Collection Services",
+        "parameters": []
+      },
+      "collection_categories": {
+        "description": "Collection Services category settings and intervals",
+        "parameters": []
+      },
+      "active_job_info": {
+        "description": "Find the top 10 consumers of CPU in the QUSRWRK and QSYSWRK subsystems",
+        "parameters": [
+          {
+            "name": "limit",
+            "type": "integer",
+            "default": 10,
+            "description": "Number of top CPU consumers to return"
+          }
+        ]
+      }
+    }
+  },
+  "ptf_management": {
+    "tools": [
+      "check_ptf_currency",
+      "list_outdated_ptf_groups",
+      "get_ptf_group_details",
+      "list_installed_ptf_groups",
+      "summarize_ptf_status",
+      "find_critical_ptf_updates"
+    ],
+    "source": "ptf_tools.yaml",
+    "title": "PTF Management Tools",
+    "description": "Tools for monitoring and managing Program Temporary Fixes (PTFs) and PTF groups on IBM i systems",
+    "tool_metadata": {
+      "check_ptf_currency": {
+        "description": "Check PTF group currency status for the current system release. Shows which PTF groups are current, outdated, or have updates available.",
+        "parameters": [
+          {
+            "name": "currency_filter",
+            "type": "string",
+            "description": "Filter by currency status (e.g., 'UPDATE AVAILABLE', 'CURRENT', '*ALL')",
+            "default": "*ALL"
+          }
+        ]
+      },
+      "list_outdated_ptf_groups": {
+        "description": "List only PTF groups that have updates available, showing how many levels behind each group is.",
+        "parameters": [
+          {
+            "name": "min_levels_behind",
+            "type": "integer",
+            "description": "Minimum number of levels behind to include in results (1-100)",
+            "default": 1
+          }
+        ]
+      },
+      "get_ptf_group_details": {
+        "description": "Get detailed information about a specific PTF group, including all installed levels and their status.",
+        "parameters": [
+          {
+            "name": "ptf_group_name",
+            "type": "string",
+            "description": "PTF group name or prefix (e.g., 'SF99730', 'SF997'), 2-10 characters"
+          }
+        ]
+      },
+      "list_installed_ptf_groups": {
+        "description": "List all PTF groups currently installed on the system with optional filtering by status and release.",
+        "parameters": [
+          {
+            "name": "status_filter",
+            "type": "string",
+            "description": "Filter by status: 'INSTALLED', 'APPLY AT NEXT IPL', or '*ALL'",
+            "default": "*ALL"
+          },
+          {
+            "name": "release_filter",
+            "type": "string",
+            "description": "Filter by release (e.g., 'R740', 'R750') or '*ALL'",
+            "default": "*ALL"
+          }
+        ]
+      },
+      "summarize_ptf_status": {
+        "description": "Get a high-level summary of PTF currency status including counts of current, outdated, and unavailable groups."
+      },
+      "find_critical_ptf_updates": {
+        "description": "Identify PTF groups that are significantly behind (critical updates needed), sorted by severity.",
+        "parameters": [
+          {
+            "name": "critical_threshold",
+            "type": "integer",
+            "description": "Number of levels behind to consider critical (1-100, default: 5)",
+            "default": 5
+          }
+        ]
+      }
+    }
+  },
+  "security_vulnerability_assessment": {
+    "tools": [
+      "users_with_limited_capabilities",
+      "commands_allowed_for_users_with_limited_capabilities",
+      "list_users_who_can_see_all_db2_data",
+      "list_db_files_readable_by_any_user",
+      "list_db_files_writable_by_any_user",
+      "list_db_files_deletable_by_any_user",
+      "list_db_files_updatable_by_any_user",
+      "list_db_files_exposed_to_trigger_attack",
+      "list_user_profiles_vulnerable_to_impersonation",
+      "list_public_authority_on_attack_vector_commands",
+      "list_files_exposed_to_rename_attack",
+      "list_system_libraries_allowing_table_creation",
+      "list_adopted_authority_programs_with_public_access"
+    ],
+    "source": "security-ops.yaml",
+    "title": "Security Vulnerability Assessment",
+    "description": "Comprehensive tools for identifying security vulnerabilities, assessing user privileges, file permissions, and potential attack vectors",
+    "tool_metadata": {
+      "users_with_limited_capabilities": {
+        "description": "Identify which users are configured with limited capabilities"
+      },
+      "commands_allowed_for_users_with_limited_capabilities": {
+        "description": "Identify which commands on the IBM i can be executed by the `users` with limited capabilities",
+        "parameters": []
+      },
+      "list_users_who_can_see_all_db2_data": {
+        "description": "Identify which users have *ALLOBJ or *SAVSYS special authorities, can see any Db2 for i data"
+      },
+      "list_db_files_readable_by_any_user": {
+        "description": "List database files that any user can read"
+      },
+      "list_db_files_writable_by_any_user": {
+        "description": "List files where any user can insert rows"
+      },
+      "list_db_files_deletable_by_any_user": {
+        "description": "List all files where any user can delete rows"
+      },
+      "list_db_files_updatable_by_any_user": {
+        "description": "List all files where any user can update rows"
+      },
+      "list_db_files_exposed_to_trigger_attack": {
+        "description": "List files exposed to a trigger attack where any user can read and alter or manage the file"
+      },
+      "list_user_profiles_vulnerable_to_impersonation": {
+        "description": "Identify user profiles vulnerable to impersonation attack where *PUBLIC authority is not set to *EXCLUDE"
+      },
+      "list_public_authority_on_attack_vector_commands": {
+        "description": "Identify dangerous commands that *PUBLIC users can execute, enabling potential privilege escalation or data exfiltration"
+      },
+      "list_files_exposed_to_rename_attack": {
+        "description": "Identify database files vulnerable to rename attacks where *PUBLIC has DATA_EXECUTE & DATA_UPDATE on library plus OBJECT_MANAGEMENT & OBJECT_OPERATIONAL on file"
+      },
+      "list_system_libraries_allowing_table_creation": {
+        "description": "Identify libraries in system or product portion of library list where *PUBLIC can create tables, exposing system to library list attacks"
+      },
+      "list_adopted_authority_programs_with_public_access": {
+        "description": "Identify programs using adopted authority (USRPRF=*OWNER) that are not secured with *PUBLIC *EXCLUDE or *AUTL, enabling privilege escalation attacks"
+      }
+    }
+  },
+  "security_audit": {
+    "tools": [
+      "repopulate_special_authority_detail",
+      "check_command_audit_settings"
+    ],
+    "source": "security-ops.yaml",
+    "title": "Security Audit",
+    "description": "Tools for auditing security configurations and maintaining security data",
+    "tool_metadata": {
+      "repopulate_special_authority_detail": {
+        "description": "Repopulate the special authority detail in the SYSTOOLS MQT"
+      },
+      "check_command_audit_settings": {
+        "description": "Check object audit settings for specified IBM i commands in QSYS library to verify if security logging is enabled",
+        "parameters": [
+          {
+            "name": "command_names",
+            "type": "array",
+            "description": "Array of command names to check audit settings for (e.g., ['ADDPFTRG', 'CRTPGM', 'SAVOBJ']). Common attack vector commands include ADDPFTRG, CRTPGM, CRTSRVPGM, SAVOBJ, SAVLIB, CRTDUPOBJ, CPYF",
+            "required": true
+          }
+        ]
+      }
+    }
+  },
+  "security_remediation": {
+    "tools": [
+      "generate_impersonation_lockdown_commands",
+      "execute_impersonation_lockdown"
+    ],
+    "source": "security-ops.yaml",
+    "title": "Security Remediation",
+    "description": "Tools for generating and executing security remediation commands",
+    "tool_metadata": {
+      "generate_impersonation_lockdown_commands": {
+        "description": "Generate GRTOBJAUT commands to lock down user profiles vulnerable to impersonation by setting *PUBLIC authority to *EXCLUDE. Returns CL commands as strings without executing them"
+      },
+      "execute_impersonation_lockdown": {
+        "description": "WRITE OPERATION: Execute GRTOBJAUT commands to lock down user profiles vulnerable to impersonation by setting *PUBLIC authority to *EXCLUDE. This modifies system security settings. Use with caution"
+      }
+    }
+  },
+  "security_all": {
+    "tools": [
+      "users_with_limited_capabilities",
+      "commands_allowed_for_users_with_limited_capabilities",
+      "repopulate_special_authority_detail",
+      "list_users_who_can_see_all_db2_data",
+      "list_db_files_readable_by_any_user",
+      "list_db_files_writable_by_any_user",
+      "list_db_files_deletable_by_any_user",
+      "list_db_files_updatable_by_any_user",
+      "list_db_files_exposed_to_trigger_attack",
+      "list_user_profiles_vulnerable_to_impersonation",
+      "list_public_authority_on_attack_vector_commands",
+      "check_command_audit_settings",
+      "generate_impersonation_lockdown_commands",
+      "execute_impersonation_lockdown",
+      "list_files_exposed_to_rename_attack",
+      "list_system_libraries_allowing_table_creation",
+      "list_adopted_authority_programs_with_public_access"
+    ],
+    "source": "security-ops.yaml",
+    "title": "Security Operations - All Tools",
+    "description": "Complete set of security vulnerability assessment, audit, and remediation tools",
+    "tool_metadata": {
+      "users_with_limited_capabilities": {
+        "description": "Identify which users are configured with limited capabilities"
+      },
+      "commands_allowed_for_users_with_limited_capabilities": {
+        "description": "Identify which commands on the IBM i can be executed by the `users` with limited capabilities",
+        "parameters": []
+      },
+      "repopulate_special_authority_detail": {
+        "description": "Repopulate the special authority detail in the SYSTOOLS MQT"
+      },
+      "list_users_who_can_see_all_db2_data": {
+        "description": "Identify which users have *ALLOBJ or *SAVSYS special authorities, can see any Db2 for i data"
+      },
+      "list_db_files_readable_by_any_user": {
+        "description": "List database files that any user can read"
+      },
+      "list_db_files_writable_by_any_user": {
+        "description": "List files where any user can insert rows"
+      },
+      "list_db_files_deletable_by_any_user": {
+        "description": "List all files where any user can delete rows"
+      },
+      "list_db_files_updatable_by_any_user": {
+        "description": "List all files where any user can update rows"
+      },
+      "list_db_files_exposed_to_trigger_attack": {
+        "description": "List files exposed to a trigger attack where any user can read and alter or manage the file"
+      },
+      "list_user_profiles_vulnerable_to_impersonation": {
+        "description": "Identify user profiles vulnerable to impersonation attack where *PUBLIC authority is not set to *EXCLUDE"
+      },
+      "list_public_authority_on_attack_vector_commands": {
+        "description": "Identify dangerous commands that *PUBLIC users can execute, enabling potential privilege escalation or data exfiltration"
+      },
+      "check_command_audit_settings": {
+        "description": "Check object audit settings for specified IBM i commands in QSYS library to verify if security logging is enabled",
+        "parameters": [
+          {
+            "name": "command_names",
+            "type": "array",
+            "description": "Array of command names to check audit settings for (e.g., ['ADDPFTRG', 'CRTPGM', 'SAVOBJ']). Common attack vector commands include ADDPFTRG, CRTPGM, CRTSRVPGM, SAVOBJ, SAVLIB, CRTDUPOBJ, CPYF",
+            "required": true
+          }
+        ]
+      },
+      "generate_impersonation_lockdown_commands": {
+        "description": "Generate GRTOBJAUT commands to lock down user profiles vulnerable to impersonation by setting *PUBLIC authority to *EXCLUDE. Returns CL commands as strings without executing them"
+      },
+      "execute_impersonation_lockdown": {
+        "description": "WRITE OPERATION: Execute GRTOBJAUT commands to lock down user profiles vulnerable to impersonation by setting *PUBLIC authority to *EXCLUDE. This modifies system security settings. Use with caution"
+      },
+      "list_files_exposed_to_rename_attack": {
+        "description": "Identify database files vulnerable to rename attacks where *PUBLIC has DATA_EXECUTE & DATA_UPDATE on library plus OBJECT_MANAGEMENT & OBJECT_OPERATIONAL on file"
+      },
+      "list_system_libraries_allowing_table_creation": {
+        "description": "Identify libraries in system or product portion of library list where *PUBLIC can create tables, exposing system to library list attacks"
+      },
+      "list_adopted_authority_programs_with_public_access": {
+        "description": "Identify programs using adopted authority (USRPRF=*OWNER) that are not secured with *PUBLIC *EXCLUDE or *AUTL, enabling privilege escalation attacks"
       }
     }
   }

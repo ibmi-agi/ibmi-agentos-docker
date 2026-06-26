@@ -81,7 +81,7 @@ Two more come up often once the YAML exists:
 ibmi validate "SELECT * FROM SAMPLE.EMPLOYEE WHERE WORKDEPT = :workdept"
 
 # Dry-run a YAML tool exactly as the MCP server would resolve it
-ibmi tool list_employees --workdept A00 --tools tools/sample.yaml --dry-run
+ibmi tool find_employees_by_department --department_id A00 --tools tools/employee-info.yaml --dry-run
 ```
 
 Full command reference: <https://ibm-d95bab6e.mintlify.app/cli/commands.md>.
@@ -90,4 +90,3 @@ Full command reference: <https://ibm-d95bab6e.mintlify.app/cli/commands.md>.
 
 - [`docs/write-new-tool.md`](write-new-tool.md) — the full explore → draft → write → validate → commit loop.
 - [`docs/tool-design-reference.md`](tool-design-reference.md) — the YAML schema you'll be writing against.
-- [`docs/extend-knowledge.md`](extend-knowledge.md) — using the CLI to capture column metadata for a knowledge-base entry.

@@ -1,10 +1,6 @@
-# IBM i SAMPLE Library Tools
-# Schema-discovery tools + employee/department/project tools for the
-# Db2 for i SAMPLE library shipped with every IBM i system.
-#
-# The employee-info tools are ported verbatim from the upstream canonical
-# YAML so the upstream remains a visible reference point:
-#   https://github.com/IBM/ibmi-mcp-server/blob/main/tools/sample/employee-info.yaml
+# Employee Information Tools for SAMPLE schema
+# These tools provide access to employee data, department information, and project assignments
+# This file demonstrates various parameter types and validation constraints
 
 sources:
   ibmi-sample:
@@ -15,116 +11,19 @@ sources:
     ignore-unauthorized: true
 
 tools:
-  # ─── Schema discovery (custom) ────────────────────────────────────────────
-
-  list_sample_tables:
-    source: ibmi-sample
-    description: |
-      List all tables, views, and physical files in the SAMPLE library
-      with their text descriptions and object types. Use this first when
-      you need to know which objects are available in SAMPLE before
-      writing a query.
-    statement: |
-      SELECT TABLE_NAME, TABLE_TEXT, TABLE_TYPE
-      FROM QSYS2.SYSTABLES
-      WHERE TABLE_SCHEMA = 'SAMPLE'
-      ORDER BY TABLE_NAME
-    responseFormat: markdown
-    security:
-      readOnly: true
-    annotations:
-      readOnlyHint: true
-      idempotentHint: true
-      domain: "sample"
-      category: "discovery"
-      title: "List SAMPLE Tables"
-
-  describe_sample_table:
-    source: ibmi-sample
-    description: |
-      Describe the columns of a table in the SAMPLE library: name, data
-      type, length, numeric scale, nullability, column text, and ordinal
-      position. Pass the unqualified table name (e.g., 'EMPLOYEE'). Use
-      this before writing any column-referencing SQL against a SAMPLE
-      table.
-    statement: |
-      SELECT COLUMN_NAME,
-             DATA_TYPE,
-             LENGTH,
-             NUMERIC_SCALE,
-             IS_NULLABLE,
-             COLUMN_TEXT,
-             ORDINAL_POSITION
-      FROM QSYS2.SYSCOLUMNS
-      WHERE TABLE_SCHEMA = 'SAMPLE'
-        AND TABLE_NAME = UPPER(:table_name)
-      ORDER BY ORDINAL_POSITION
-    parameters:
-      - name: table_name
-        type: string
-        description: "Unqualified table name in the SAMPLE library (e.g., 'EMPLOYEE')"
-        required: true
-        pattern: "^[A-Z_][A-Z0-9_]*$"
-    responseFormat: markdown
-    security:
-      readOnly: true
-    annotations:
-      readOnlyHint: true
-      idempotentHint: true
-      domain: "sample"
-      category: "discovery"
-      title: "Describe SAMPLE Table"
-
-  list_sample_relationships:
-    source: ibmi-sample
-    description: |
-      List foreign-key relationships defined in the SAMPLE library:
-      constraint name, child table/column, referenced parent table/column,
-      and the delete/update rules. Use this to understand how SAMPLE
-      tables join before writing multi-table queries.
-    statement: |
-      SELECT R.CONSTRAINT_NAME,
-             K.TABLE_NAME,
-             K.COLUMN_NAME,
-             PK.TABLE_NAME      AS REFERENCED_TABLE_NAME,
-             PK.COLUMN_NAME     AS REFERENCED_COLUMN_NAME,
-             R.DELETE_RULE,
-             R.UPDATE_RULE
-      FROM QSYS2.SYSREFCST R
-      JOIN QSYS2.SYSKEYCST K
-        ON R.CONSTRAINT_SCHEMA = K.CONSTRAINT_SCHEMA
-       AND R.CONSTRAINT_NAME   = K.CONSTRAINT_NAME
-      JOIN QSYS2.SYSKEYCST PK
-        ON R.UNIQUE_CONSTRAINT_SCHEMA = PK.CONSTRAINT_SCHEMA
-       AND R.UNIQUE_CONSTRAINT_NAME   = PK.CONSTRAINT_NAME
-       AND K.ORDINAL_POSITION         = PK.ORDINAL_POSITION
-      WHERE R.CONSTRAINT_SCHEMA = 'SAMPLE'
-      ORDER BY K.TABLE_NAME, R.CONSTRAINT_NAME, K.ORDINAL_POSITION
-    responseFormat: markdown
-    security:
-      readOnly: true
-    annotations:
-      readOnlyHint: true
-      idempotentHint: true
-      domain: "sample"
-      category: "discovery"
-      title: "List SAMPLE Relationships"
-
-  # ─── Employee info (ported verbatim from upstream employee-info.yaml) ─────
-
   get_employee_details:
     source: ibmi-sample
     description: Retrieve detailed information about an employee including department and manager
     statement: |
-      SELECT
-        E.EMPNO,
-        E.FIRSTNME,
-        E.MIDINIT,
-        E.LASTNAME,
-        E.JOB,
-        E.HIREDATE,
-        E.SALARY,
-        E.BONUS,
+      SELECT 
+        E.EMPNO, 
+        E.FIRSTNME, 
+        E.MIDINIT, 
+        E.LASTNAME, 
+        E.JOB, 
+        E.HIREDATE, 
+        E.SALARY, 
+        E.BONUS, 
         E.WORKDEPT,
         D.DEPTNAME,
         D.LOCATION,
@@ -146,7 +45,7 @@ tools:
     annotations:
       readOnlyHint: true
       idempotentHint: true
-      domain: "sample"
+      domain: "hr"
       category: "employee-info"
       title: "Get Employee Details"
 
@@ -154,13 +53,13 @@ tools:
     source: ibmi-sample
     description: List employees in a specific department
     statement: |
-      SELECT
-        E.EMPNO,
-        E.FIRSTNME,
-        E.MIDINIT,
-        E.LASTNAME,
-        E.JOB,
-        E.HIREDATE,
+      SELECT 
+        E.EMPNO, 
+        E.FIRSTNME, 
+        E.MIDINIT, 
+        E.LASTNAME, 
+        E.JOB, 
+        E.HIREDATE, 
         E.SALARY
       FROM SAMPLE.EMPLOYEE E
       WHERE E.WORKDEPT = :department_id
@@ -176,7 +75,7 @@ tools:
     annotations:
       readOnlyHint: true
       idempotentHint: true
-      domain: "sample"
+      domain: "hr"
       category: "employee-info"
       title: "Find Employees by Department"
 
@@ -184,14 +83,14 @@ tools:
     source: ibmi-sample
     description: Find employees with a specific job title
     statement: |
-      SELECT
-        E.EMPNO,
-        E.FIRSTNME,
-        E.MIDINIT,
-        E.LASTNAME,
+      SELECT 
+        E.EMPNO, 
+        E.FIRSTNME, 
+        E.MIDINIT, 
+        E.LASTNAME, 
         E.WORKDEPT,
         D.DEPTNAME,
-        E.HIREDATE,
+        E.HIREDATE, 
         E.SALARY
       FROM SAMPLE.EMPLOYEE E
       LEFT JOIN SAMPLE.DEPARTMENT D ON E.WORKDEPT = D.DEPTNO
@@ -208,7 +107,7 @@ tools:
     annotations:
       readOnlyHint: true
       idempotentHint: true
-      domain: "sample"
+      domain: "hr"
       category: "employee-info"
       title: "Find Employees by Job Title"
 
@@ -216,7 +115,7 @@ tools:
     source: ibmi-sample
     description: List projects an employee is working on
     statement: |
-      SELECT
+      SELECT 
         P.PROJNO,
         P.PROJNAME,
         A.ACTNO,
@@ -246,7 +145,7 @@ tools:
     annotations:
       readOnlyHint: true
       idempotentHint: true
-      domain: "sample"
+      domain: "hr"
       category: "project-assignments"
       title: "Get Employee Projects"
 
@@ -254,7 +153,7 @@ tools:
     source: ibmi-sample
     description: Salary statistics by department with optional salary range filter
     statement: |
-      SELECT
+      SELECT 
         D.DEPTNO,
         D.DEPTNAME,
         COUNT(E.EMPNO) AS EMPLOYEE_COUNT,
@@ -291,7 +190,7 @@ tools:
     annotations:
       readOnlyHint: true
       idempotentHint: true
-      domain: "sample"
+      domain: "hr"
       category: "salary-analysis"
       title: "Department Salary Statistics"
 
@@ -330,7 +229,7 @@ tools:
     annotations:
       readOnlyHint: true
       idempotentHint: true
-      domain: "sample"
+      domain: "hr"
       category: "project-assignments"
       title: "Find Project Team Members"
 
@@ -338,10 +237,10 @@ tools:
     source: ibmi-sample
     description: Calculate potential bonus for an employee based on performance rating and salary
     statement: |
-      SELECT
-        E.EMPNO,
-        E.FIRSTNME,
-        E.LASTNAME,
+      SELECT 
+        E.EMPNO, 
+        E.FIRSTNME, 
+        E.LASTNAME, 
         E.SALARY,
         E.SALARY * :performance_multiplier AS CALCULATED_BONUS
       FROM SAMPLE.EMPLOYEE E
@@ -364,7 +263,7 @@ tools:
     annotations:
       readOnlyHint: true
       idempotentHint: true
-      domain: "sample"
+      domain: "hr"
       category: "salary-analysis"
       title: "Calculate Employee Bonus"
 
@@ -372,12 +271,12 @@ tools:
     source: ibmi-sample
     description: Search for employees by name with pagination
     statement: |
-      SELECT
-        E.EMPNO,
-        E.FIRSTNME,
-        E.MIDINIT,
-        E.LASTNAME,
-        E.JOB,
+      SELECT 
+        E.EMPNO, 
+        E.FIRSTNME, 
+        E.MIDINIT, 
+        E.LASTNAME, 
+        E.JOB, 
         E.WORKDEPT,
         D.DEPTNAME
       FROM SAMPLE.EMPLOYEE E
@@ -408,18 +307,38 @@ tools:
     annotations:
       readOnlyHint: true
       idempotentHint: true
-      domain: "sample"
+      domain: "hr"
       category: "employee-info"
       title: "Search Employees"
 
 toolsets:
-  sample_data:
-    title: "SAMPLE Data"
-    description: "Schema discovery + employee data for the Db2 for i SAMPLE library"
+  employee_information:
+    title: "Employee Information"
+    description: "Tools for retrieving and analyzing employee data"
     tools:
-      - list_sample_tables
-      - describe_sample_table
-      - list_sample_relationships
+      - get_employee_details
+      - find_employees_by_department
+      - find_employees_by_job
+      - search_employees
+
+  project_management:
+    title: "Project Management"
+    description: "Tools for managing project assignments and team members"
+    tools:
+      - get_employee_projects
+      - find_project_team_members
+
+  salary_analysis:
+    title: "Salary Analysis"
+    description: "Tools for analyzing salary data across departments"
+    tools:
+      - get_department_salary_stats
+      - calculate_employee_bonus
+
+  sample_all:
+    title: "Sample Database - All Tools"
+    description: "Complete set of employee information, project management, and salary analysis tools"
+    tools:
       - get_employee_details
       - find_employees_by_department
       - find_employees_by_job
@@ -429,8 +348,4 @@ toolsets:
       - calculate_employee_bonus
       - search_employees
 
-metadata:
-  version: "1.0.0"
-  description: "SAMPLE library tools — schema discovery + employee-info (upstream-aligned)"
-  domain: "sample"
-  category: "data-access"
+# Made with Bob

@@ -3,14 +3,13 @@
 # =============================================================================
 #
 # Usage:
-#   docker compose up -d                                            # default stack
-#   docker compose -f compose.yaml -f compose.auth.yaml up -d       # with optional multi-user auth
-#   docker compose down                                             # stop everything
+#   docker compose up -d      # start the stack
+#   docker compose down       # stop everything
 #
 # Services:
 #   agentos-db       Postgres + pgvector (sessions, memory, traces, knowledge)
 #   ibmi-mcp-server  IBM i tools server — exposes tools/*.yaml over MCP
-#   agentos-api      FastAPI app running the agents (OpenAI embeddings)
+#   agentos-api      FastAPI app running the agents (+ Parallel web research)
 #
 # =============================================================================
 
@@ -50,17 +49,20 @@ services:
       YAML_AUTO_RELOAD: "true"
       TOOLS_YAML_PATH: /usr/src/app/tools
       YAML_ALLOW_DUPLICATE_SOURCES: "true"
-      IBMI_ENABLE_EXECUTE_SQL: "true"
+      # Built-in MCP tools (the env equivalents of the --builtin-tools /
+      # --execute-sql flags):
+      #   IBMI_ENABLE_DEFAULT_TOOLS -> schema discovery: list_schemas,
+      #     list_tables_in_schema, get_table_columns, get_related_objects,
+      #     validate_query (the text2sql agent filters for these)
+      #   IBMI_ENABLE_EXECUTE_SQL   -> ad-hoc execute_sql (HITL-gated in the agent)
       IBMI_ENABLE_DEFAULT_TOOLS: "true"
+      IBMI_ENABLE_EXECUTE_SQL: "true"
       # Rate limiting & timeouts
       MCP_RATE_LIMIT_ENABLED: "true"
       MCP_RATE_LIMIT_MAX_REQUESTS: "5000"
       MCP_RATE_LIMIT_WINDOW_MS: "60000"
       MCP_RATE_LIMIT_SKIP_DEV: "true"
       MCP_POOL_QUERY_TIMEOUT_MS: "120000"
-      # Auth — disabled by default; compose.auth.yaml flips these on
-      MCP_AUTH_MODE: none
-      IBMI_HTTP_AUTH_ENABLED: "false"
     volumes:
       - ./tools:/usr/src/app/tools:rw
     healthcheck:
@@ -81,7 +83,7 @@ services:
     # restart uvicorn — disruptive when chatting with an agent.
     command: >
       uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-      --reload-dir agents --reload-dir app --reload-dir auth --reload-dir db
+      --reload-dir agents --reload-dir app --reload-dir db
     restart: unless-stopped
     ports:
       - "8000:8000"
@@ -101,8 +103,6 @@ services:
       DB_PASS: ${DB_PASS:-ai}
       DB_DATABASE: ${DB_DATABASE:-ai}
       MCP_URL: http://ibmi-mcp-server:3010/mcp
-      AUTH_ENABLED: ${AUTH_ENABLED:-false}
-      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
     depends_on:
       agentos-db:
         condition: service_started
