@@ -8,16 +8,11 @@ license-files = ["LICENSE"]
 authors = [{ name = "IBM i AgentOS" }]
 
 dependencies = [
-  "agno[os]==2.6.20",
+  "agno[os,mcp,pgvector,psycopg]==2.8.5",
   "anthropic",
-  "fastapi[standard]",
-  "mcp",
   "openai",
-  "pgvector",
-  "psycopg[binary]",
   "python-dotenv",
   "pyyaml",
-  "sqlalchemy",
 ]
 
 [project.optional-dependencies]
@@ -32,7 +27,10 @@ include = ["agents*", "app*", "db*"]
 
 [tool.ruff]
 line-length = 120
-exclude = [".venv*"]
+exclude = [".venv*", "*.md"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "F403"]

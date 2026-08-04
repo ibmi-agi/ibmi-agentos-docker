@@ -17,19 +17,18 @@ Usage:
 
 import json
 from pathlib import Path
-from typing import List
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _TOOLSETS_FILE = _PROJECT_ROOT / "tools" / "toolsets.json"
 _TOOLSETS: dict = json.loads(_TOOLSETS_FILE.read_text())
 
 
-def get_toolset(name: str) -> List[str]:
+def get_toolset(name: str) -> list[str]:
     """Get tool names for a toolset. Raises KeyError if not found."""
     return list(_TOOLSETS[name]["tools"])
 
 
-def get_toolsets(*names: str) -> List[str]:
+def get_toolsets(*names: str) -> list[str]:
     """Combine multiple toolsets into a single deduplicated tool list."""
     seen = set()
     result = []
@@ -41,6 +40,6 @@ def get_toolsets(*names: str) -> List[str]:
     return result
 
 
-def list_toolsets() -> List[str]:
+def list_toolsets() -> list[str]:
     """Return all available toolset names."""
     return list(_TOOLSETS.keys())

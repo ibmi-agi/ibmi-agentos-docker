@@ -5,6 +5,8 @@ Database Session
 PostgreSQL database connection for AgentOS.
 """
 
+from functools import cache
+
 from agno.db.postgres import PostgresDb
 
 from db.url import db_url
@@ -12,8 +14,12 @@ from db.url import db_url
 DB_ID = "agentos-db"
 
 
+@cache
 def get_postgres_db(contents_table: str | None = None) -> PostgresDb:
-    """Create a PostgresDb instance.
+    """Returns the shared PostgresDb instance for the AgentOS.
+
+    Memoized so every agent reuses the same object instead of constructing
+    a fresh PostgresDb on each call.
 
     Args:
         contents_table: Optional table name for storing knowledge contents.

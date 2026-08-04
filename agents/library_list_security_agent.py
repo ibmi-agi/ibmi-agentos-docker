@@ -8,7 +8,6 @@ Test: python -m agents.library_list
 """
 
 from agno.agent import Agent
-from agno.db.postgres import PostgresDb
 from agno.tools.mcp import MCPTools
 from agno.tools.reasoning import ReasoningTools
 
@@ -23,7 +22,7 @@ from agents.utils.common import (
 )
 from agents.utils.tools import get_toolset
 from agents.utils.web_context import web_tools
-from db.session import db_url
+from db import get_postgres_db
 
 MCP_URL = "http://ibmi-mcp-server:3010/mcp"
 
@@ -128,7 +127,7 @@ library_list_agent = Agent(
     markdown=True,
     add_datetime_to_context=True,
     # Storage
-    db=PostgresDb(id="agno-storage", db_url=db_url),
+    db=get_postgres_db(),
     # Session history
     search_session_history=True,
     num_history_sessions=2,
