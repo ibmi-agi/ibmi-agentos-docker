@@ -13,7 +13,7 @@ Loop: clarify → introspect → validate SQL → preview → author YAML → sm
 
 - Stack up: `curl -sSf http://localhost:8000/healthz` and `curl -sSf http://localhost:3010/healthz` both return 200.
 - The user has named (a) the existing agent (slug — the SAMPLE Data Agent is `ibmi-sample`) and (b) the capability they want to add.
-- `ibmi` CLI working: `ibmi sql "VALUES CURRENT_DATE"` returns today's date. Used for introspection and SQL validation. Setup: [`docs/ibmi-cli.md`](ibmi-cli.md).
+- `ibmi` CLI working: `ibmi sql "SELECT CURRENT_DATE FROM SYSIBM.SYSDUMMY1"` returns today's date. Used for introspection and SQL validation. Setup: [`docs/ibmi-cli.md`](ibmi-cli.md).
 
 If the capability isn't naturally an IBM i SQL tool (e.g. it's a new agent persona, or it's purely CL with no SQL surface), route the user to [`docs/create-new-agent.md`](create-new-agent.md) instead.
 

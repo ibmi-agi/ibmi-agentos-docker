@@ -87,7 +87,7 @@ The `ibmi` CLI is the host-side authoring tool the agent-development loop leans 
 
   ```bash
   set -a; source .env; set +a
-  ibmi sql "VALUES CURRENT_DATE"
+  ibmi sql "SELECT CURRENT_DATE FROM SYSIBM.SYSDUMMY1"
   ```
 
   Today's date as a one-row table = the CLI and the platform now share one set of credentials. If it fails, the same `DB2i_*` values will also fail the MCP server in Step 5's boot — fix them here, once.

@@ -16,7 +16,7 @@ Agents here get their IBM i tools from the **`ibmi-mcp-server`** container: tool
 - Live API: `curl -sSf http://localhost:8000/health` returns 200.
 - Live MCP server: `curl -sSf http://localhost:3010/healthz` returns 200.
 - `.env` has a model key (`ANTHROPIC_API_KEY` by default) and `DB2i_HOST` / `DB2i_USER` / `DB2i_PASS`.
-- If Phase 1 tool work is likely: `ibmi sql "VALUES CURRENT_DATE"` returns today's date ([`docs/ibmi-cli.md`](../../../docs/ibmi-cli.md) covers setup).
+- If Phase 1 tool work is likely: `ibmi sql "SELECT CURRENT_DATE FROM SYSIBM.SYSDUMMY1"` returns today's date ([`docs/ibmi-cli.md`](../../../docs/ibmi-cli.md) covers setup).
 
 If the stack isn't up, ask the user to run `podman compose up -d --build` and wait. Don't proceed against a broken stack.
 

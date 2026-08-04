@@ -41,7 +41,7 @@ If your `.env` already has the values the MCP server uses, the CLI picks them up
 Sanity check from the host (with `.env` loaded into the shell, or after `set -a; source .env; set +a`):
 
 ```bash
-ibmi sql "VALUES CURRENT_DATE"
+ibmi sql "SELECT CURRENT_DATE FROM SYSIBM.SYSDUMMY1"
 ```
 
 You should see today's date printed as a one-row table.

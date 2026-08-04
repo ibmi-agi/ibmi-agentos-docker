@@ -22,7 +22,7 @@ This is the user-driven half of the iteration loop. The autonomous half lives in
 
   Empty result = the container's `/app` is bound to a different repo path. Either `cd` there or restart the stack from this directory.
 - Ask the user for the target agent **slug** (e.g. `ibmi-performance-monitor`) if they haven't named one.
-- For IBM i tool work: `ibmi sql "VALUES CURRENT_DATE"` returns today's date ([`docs/ibmi-cli.md`](../../../docs/ibmi-cli.md)).
+- For IBM i tool work: `ibmi sql "SELECT CURRENT_DATE FROM SYSIBM.SYSDUMMY1"` returns today's date ([`docs/ibmi-cli.md`](../../../docs/ibmi-cli.md)).
 - Recommend a feature branch (`git checkout -b extend/<slug>-$(date +%Y%m%d)`) so wrong turns are easy to revert.
 
 ## 1. Read the agent first

@@ -19,7 +19,7 @@ Schema/conventions for tool YAMLs live in [`docs/tool-design-reference.md`](tool
 - Live API: `curl -sSf http://localhost:8000/healthz` returns 200.
 - Live MCP server: `curl -sSf http://localhost:3010/healthz` returns 200.
 - `.env` has `ANTHROPIC_API_KEY` (or whatever provider `AGENT_MODEL` points at) and `DB2i_HOST` / `DB2i_USER` / `DB2i_PASS`.
-- `ibmi` works: `ibmi sql "VALUES CURRENT_DATE"` returns today's date. Needed for any Phase 1 tool work.
+- `ibmi` works: `ibmi sql "SELECT CURRENT_DATE FROM SYSIBM.SYSDUMMY1"` returns today's date. Needed for any Phase 1 tool work.
 
 If any are missing, ask the user to fix them — don't proceed against a broken stack.
 

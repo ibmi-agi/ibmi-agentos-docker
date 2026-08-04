@@ -13,7 +13,7 @@ The `ibmi` CLI is the only database utility you use here. Background and command
 - `ibmi` installed on the host (`ibmi --version`) — see [`docs/ibmi-cli.md`](ibmi-cli.md) to install it. Sanity check returns today's date:
 
   ```bash
-  ibmi sql "VALUES CURRENT_DATE"
+  ibmi sql "SELECT CURRENT_DATE FROM SYSIBM.SYSDUMMY1"
   ```
 
 - Stack healthy:
