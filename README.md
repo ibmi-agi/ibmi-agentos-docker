@@ -66,7 +66,8 @@ podman compose up -d --build
 
 - **API**: http://localhost:8000
 - **Docs**: http://localhost:8000/docs
-- **MCP server**: http://localhost:3010/healthz
+- **AgentOS MCP interface**: http://localhost:8000/mcp
+- **IBM i MCP server (tools)**: http://localhost:3010/healthz
 - **Database**: localhost:5432
 
 ### 4. Connect to control plane
@@ -74,6 +75,21 @@ podman compose up -d --build
 1. Open [os.agno.com](https://os.agno.com)
 2. Click "Add OS" → "Local"
 3. Enter `http://localhost:8000`
+
+### 5. Drive the agents over MCP (optional)
+
+The platform itself is an MCP server (streamable HTTP at `/mcp`, same port as the
+REST API): chat apps and coding agents run the agents through generic tools like
+`run_agent(agent_id, message)`. The repo's [`.bob/mcp.json`](.bob/mcp.json) (symlinked
+from `.mcp.json`) already registers it for coding agents working in this checkout;
+elsewhere, register it by hand:
+
+```sh
+claude mcp add --transport http agentos http://localhost:8000/mcp
+```
+
+There is no auth layer in this template, so `/mcp` shares the API's
+network-posture boundary — keep it private in production.
 
 ---
 

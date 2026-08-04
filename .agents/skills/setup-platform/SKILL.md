@@ -108,4 +108,6 @@ Finish with a short summary: the six shipped agents (`ibmi-text2sql`, `ibmi-perf
 - [`/extend-agent`](../extend-agent/SKILL.md) — they drive: give an existing agent a new tool or capability, refine its instructions, fix a known bug.
 - [`/improve-agent`](../improve-agent/SKILL.md) — you drive: probe an agent against its own instructions, judge, edit, re-probe until it's reliable.
 
+Mention in one line that the platform is also an MCP server at `http://localhost:8000/mcp` — this repo's `.mcp.json` already registers it for coding agents working in the checkout, and `claude mcp add --transport http agentos http://localhost:8000/mcp` registers it anywhere else.
+
 Note the `ibmi-sample` agent expects the SAMPLE schema (`CALL QSYS.CREATE_SQL_SAMPLE('SAMPLE')` creates it) — mention it only if they ask about that agent.

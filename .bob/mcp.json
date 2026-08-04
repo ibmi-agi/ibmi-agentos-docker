@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "agno-docs": {
+      "type": "http",
+      "url": "https://docs.agno.com/mcp"
+    },
+    "agentos": {
+      "type": "http",
+      "url": "http://localhost:8000/mcp"
+    }
+  }
+}

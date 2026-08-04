@@ -87,8 +87,10 @@ The bulk of the work. Diff each pair; auto-fix per the rules at the top.
 | Health endpoints in docs match code | docs ↔ agno's `/health`, MCP server's `/healthz` | Wrong endpoint claimed |
 | MCP server version pin consistent | `.env.example` `MCP_SERVER_VERSION` ↔ `compose.yaml` default | Bumped in one place only |
 | Skill frontmatter + links resolve | `.agents/skills/*/SKILL.md` ↔ folder name + `../../../` targets | name≠folder, broken path, dead cross-skill link |
-| `.claude/skills` symlink resolves | `.claude/skills` → `../.agents/skills` | Symlink missing or dangling |
-| `.mcp.json` servers and the docs that reference them agree | `.mcp.json` ↔ docs + skills | URL changed, server renamed |
+| Skill symlinks resolve | `.claude/skills` and `.bob/skills` → `../.agents/skills` | Symlink missing or dangling |
+| MCP config symlink resolves | `.mcp.json` → `.bob/mcp.json` (the real file) | Symlink replaced by a stale copy, or dangling |
+| `.bob/mcp.json` servers and the docs that reference them agree | `.bob/mcp.json` ↔ docs + skills | URL changed, server renamed, `agentos` entry dropped |
+| MCP interface claim matches code | docs ↔ `mcp_server=True` in `app/main.py` | `/mcp` promised in docs but flag flipped off |
 | Eval cases reference real agents + tools | [`evals/cases.py`](../../../evals/cases.py) ↔ `agents/` + `tools/toolsets.json` | Agent renamed or tool removed from a toolset |
 | "Don't add" cuts still hold | `AGENTS.md` deliberate-cuts list ↔ codebase | A registry/CLI/auth layer crept in undocumented |
 

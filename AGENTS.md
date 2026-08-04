@@ -24,6 +24,13 @@ A starter for building IBM i agents on **Agno AgentOS**, deployed with Podman:
   default; `PARALLEL_API_KEY` raises the rate ceiling.
 - **Storage** is Postgres + pgvector via `agno.db.postgres.PostgresDb` — sessions,
   memory, traces in one place.
+- **MCP interface**: `mcp_server=True` in `app/main.py` mounts an MCP server
+  (streamable HTTP) at `/mcp` on the same port as the REST API — chat apps and coding
+  agents drive the agents through generic tools (`get_agentos_config`, `run_agent`,
+  `get_sessions`, …). Don't confuse the two MCP surfaces: `/mcp` on :8000 is how
+  clients drive *this platform*; `ibmi-mcp-server` on :3010 is where the agents get
+  their *IBM i tools*. No auth layer here, so `/mcp` shares the API's network-posture
+  boundary.
 - **The runtime stack** is `podman compose up -d` → `agentos-db`, `ibmi-mcp-server`,
   `agentos-api`. Local dev hot-reloads code under `agents/`, `app/`, `db/`.
 
@@ -48,7 +55,9 @@ tools/                 IBM i tool YAMLs + generated toolsets.json + schema
 docs/                  Agent-authoring lifecycle prompts + reference docs
 .agents/skills/        Coding-agent workflows (/setup-platform, /create-agent, /extend-agent,
                        /improve-agent, /create-evals, /eval-and-improve, /review-and-improve);
-                       .claude/skills symlinks here
+                       .claude/skills and .bob/skills symlink here
+.bob/                  Bob config home: mcp.json (the real file — root .mcp.json symlinks
+                       to it) + skills symlink
 scripts/               format / validate / generate_requirements / venv_setup / build_image
 parse_mcp_tools.py     tools/*.yaml -> tools/toolsets.json
 compose.yaml           Local stack (db + mcp + api)
@@ -163,11 +172,14 @@ podman compose up -d && \
 
 Dev-time **coding-agent workflows** live in [`.agents/skills/`](.agents/skills/) — the
 vendor-neutral home for coding-agent assets, mirroring how `CLAUDE.md` symlinks to
-`AGENTS.md`. `.claude/skills` is a committed symlink into it, so Claude Code picks the
-skills up on every clone with no setup step; other harnesses (Codex, Cursor, …) can
-symlink the same folder. (Windows needs developer mode or `core.symlinks=true` for the
-symlink to materialize.) Claude-specific config like `.claude/settings.json` stays a
-real file in `.claude/`.
+`AGENTS.md`. `.claude/skills` and `.bob/skills` are committed symlinks into it, so
+Claude Code and Bob pick the skills up on every clone with no setup step; other
+harnesses (Codex, Cursor, …) can symlink the same folder. (Windows needs developer
+mode or `core.symlinks=true` for the symlinks to materialize.) MCP client config
+follows the same pattern with `.bob/` as the home: [`.bob/mcp.json`](.bob/mcp.json) is
+the real file — registering the `agno-docs` server and the platform's own `/mcp`
+endpoint (`agentos`) — and root `.mcp.json` symlinks to it for Claude Code.
+Vendor-specific config like `.claude/settings.json` stays a real file in its own dir.
 
 - **`/setup-platform`** — fresh clone to a running platform: Podman check (guided
   install of podman + podman-compose if missing), `.env` (model key + IBM i
