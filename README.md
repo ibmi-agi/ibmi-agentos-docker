@@ -383,7 +383,9 @@ python -m evals --tag smoke     # fast core
 python -m evals --tag release   # all cases
 ```
 
-Results log to Postgres and show up at [os.agno.com](https://os.agno.com).
+The LLM judge follows `AGENT_MODEL` (override with `EVALS_JUDGE_MODEL`). Results log to
+Postgres and show up at [os.agno.com](https://os.agno.com). To add coverage for your own
+agents, run the `/create-evals` skill; to repair a failing suite, `/eval-and-improve`.
 
 ### Regenerate toolsets.json
 
@@ -433,6 +435,7 @@ docker compose -f compose.yaml -f compose.prod.yaml logs -f agentos-api
 | `DB2i_PASS` | Yes | - | IBM i password |
 | `AGENT_MODEL` | No | `anthropic:claude-sonnet-4-5` | Model for agents ([provider index](https://docs.agno.com/models/providers/model-index)) |
 | `AGENT_TEAM_MEMBER_MODEL` | No | `anthropic:claude-haiku-4-5` | Lightweight model for sub-agents |
+| `EVALS_JUDGE_MODEL` | No | follows `AGENT_MODEL` | Model for the eval suite's LLM judge |
 | `PARALLEL_API_KEY` | No | - | Parallel key for `query_web` (keyless works without it) |
 | `OPENAI_API_KEY` | No | - | Embedder for agentic memory recall |
 | `MCP_SERVER_VERSION` | No | `v0.5.1` | `ghcr.io/ibm/ibmi-mcp-server` image tag |

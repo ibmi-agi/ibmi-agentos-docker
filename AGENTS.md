@@ -47,7 +47,8 @@ evals/                 Eval suite (cases.py; run with `python -m evals`)
 tools/                 IBM i tool YAMLs + generated toolsets.json + schema
 docs/                  Agent-authoring lifecycle prompts + reference docs
 .agents/skills/        Coding-agent workflows (/setup-platform, /create-agent, /extend-agent,
-                       /improve-agent, /review-and-improve); .claude/skills symlinks here
+                       /improve-agent, /create-evals, /eval-and-improve, /review-and-improve);
+                       .claude/skills symlinks here
 scripts/               format / validate / generate_requirements / venv_setup / build_image
 parse_mcp_tools.py     tools/*.yaml -> tools/toolsets.json
 compose.yaml           Local stack (db + mcp + api)
@@ -115,8 +116,14 @@ python -m evals --name <case>   # one case
 ```
 
 Keep new cases read-only by construction (the shipped ones are), and tag them `smoke`
-(fast core) or `release` (everything). Results log to Postgres via `eval_db` and are
-visible at os.agno.com.
+(fast core) or `release` (everything). The LLM judge follows `AGENT_MODEL`; set
+`EVALS_JUDGE_MODEL` to use a different judge. Results log to Postgres via `eval_db`
+and are visible at os.agno.com.
+
+Two skills work this suite from opposite ends: to author coverage — especially for
+agents you build, which start with none — run
+[`/create-evals`](.agents/skills/create-evals/SKILL.md); to diagnose failures and fix
+in scope, run [`/eval-and-improve`](.agents/skills/eval-and-improve/SKILL.md).
 
 ### Running in production
 
@@ -170,6 +177,11 @@ real file in `.claude/`.
   `INSTRUCTIONS`, fix a known bug — one verified change per iteration.
 - **`/improve-agent`** — Claude drives. Derives probes from the agent's `INSTRUCTIONS`
   and real usage in the database, judges, edits, re-probes. No user input needed.
+- **`/create-evals`** — author eval coverage for an agent: map what its instructions and
+  shared blocks promise, mine real sessions for scenarios, write read-only `Case`
+  entries with toolset-grounded assertions. How a user's own agents join the suite.
+- **`/eval-and-improve`** — run the eval suite, diagnose every failure (agent vs case vs
+  tool SQL vs environment), fix in scope until green.
 - **`/review-and-improve`** — repo-wide drift sweep (docs vs code vs config).
 
 Invoke a skill by name (`/extend-agent`) or just describe the task — Claude Code matches

@@ -183,3 +183,4 @@ Lead with the answer the agent just gave — that's their idea, alive, against t
 
 - [`/extend-agent`](../extend-agent/SKILL.md) — they drive: add a tool or capability, fix something it got wrong.
 - [`/improve-agent`](../improve-agent/SKILL.md) — you drive: probe it against its own `INSTRUCTIONS` until it's reliable.
+- [`/create-evals`](../create-evals/SKILL.md) — pin today's behavior down as tests. The smoke test that just passed is already a first case in the making; offer to persist it so the suite watches their agent from day one.

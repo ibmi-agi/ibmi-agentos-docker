@@ -36,7 +36,13 @@ environ.setdefault("MCP_URL", "http://localhost:3010/mcp")
 import sys  # noqa: E402
 
 from agno.eval import cli  # noqa: E402
+from agno.models.utils import get_model  # noqa: E402
 
 from evals.cases import CASES, eval_db  # noqa: E402
 
-sys.exit(cli(CASES, db=eval_db))
+# Agno's judge defaults to an OpenAI model; this template is provider-agnostic
+# via AGENT_MODEL, so the judge follows the same switch. EVALS_JUDGE_MODEL
+# overrides it when you want a different (e.g. cheaper) judge.
+judge_model = get_model(environ.get("EVALS_JUDGE_MODEL") or environ.get("AGENT_MODEL") or "anthropic:claude-sonnet-4-5")
+
+sys.exit(cli(CASES, db=eval_db, judge_model=judge_model))

@@ -34,7 +34,8 @@ This is a **recurring sweep** — on a clean repo it ends with "no diffs"; on a 
 - SQL changes inside [`tools/*.yaml`](../../../tools/) — tool SQL runs against someone's live system; propose, don't apply.
 - Dependency edits in [`pyproject.toml`](../../../pyproject.toml).
 - Anything in [`db/`](../../../db/), [`compose.yaml`](../../../compose.yaml), [`compose.prod.yaml`](../../../compose.prod.yaml), or [`Dockerfile`](../../../Dockerfile).
-- Failing live agents or failing eval cases — recommend [`improve-agent`](../improve-agent/SKILL.md) or [`extend-agent`](../extend-agent/SKILL.md); don't fix here.
+- Failing live agents — recommend [`improve-agent`](../improve-agent/SKILL.md) or [`extend-agent`](../extend-agent/SKILL.md); don't fix here.
+- Failing eval cases — recommend [`eval-and-improve`](../eval-and-improve/SKILL.md); don't fix here.
 
 ## 0. Preconditions
 
@@ -128,7 +129,15 @@ source .venv/bin/activate  # ./scripts/venv_setup.sh first if it doesn't exist
 
 `format.sh` auto-fixes. `validate.sh` runs ruff + mypy + the tool-YAML schema validation. If it fails, surface the errors verbatim — they usually point at real bugs introduced since the last sweep, not noise to suppress.
 
-## 6. Report
+## 6. Evals (ask before running)
+
+`python -m evals --tag release` costs model calls and runs real (read-only) SQL against the configured IBM i. Ask before running:
+
+> Run `python -m evals --tag release` to confirm no agent regressed? (Hits the model API and your IBM i; takes a few minutes.)
+
+If yes, run it. If any case fails, add it to "Needs your call" with [`eval-and-improve`](../eval-and-improve/SKILL.md) as the recommended follow-up. If the user declines, skip this step entirely — it does not affect the rest of the report.
+
+## 7. Report
 
 If nothing was fixed and nothing flagged, print: *"Repo is consistent and the live stack is healthy. No follow-up needed."* No commit suggested.
 
@@ -145,6 +154,6 @@ git diff --stat
 ```
 
 - Suggested commit message — `chore: review-and-improve sweep` plus one short bullet per fix bucket.
-- Recommended follow-up — usually [`improve-agent`](../improve-agent/SKILL.md) if a live agent looked off.
+- Recommended follow-up — usually [`improve-agent`](../improve-agent/SKILL.md) (if a live agent looked off) or [`eval-and-improve`](../eval-and-improve/SKILL.md) (if evals failed).
 
 A clean sweep takes 3-5 minutes (10+ if the venv needs creating). A dirty one is 15-30, mostly because live smoke surfaces agent regressions you have to triage.
