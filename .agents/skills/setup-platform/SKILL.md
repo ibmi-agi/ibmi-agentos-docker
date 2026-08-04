@@ -1,13 +1,13 @@
 ---
 name: setup-platform
-description: Set up this IBM i AgentOS from a fresh clone — confirm Podman and its compose provider (guiding the install if missing), configure .env (model key + IBM i credentials), boot the three containers, prove a real agent answer against the user's IBM i, connect the AgentOS UI, then hand over the agent-development loop. Use when the user asks to set up the platform, get started, or bring this repo up on a new machine.
+description: Set up this IBM i AgentOS from a fresh clone — confirm Podman and its compose provider (guiding the install if missing), configure .env (model key + IBM i credentials), create the project-scoped .ibmi/ config for the ibmi CLI, boot the three containers, prove a real agent answer against the user's IBM i, connect the AgentOS UI, then hand over the agent-development loop. Use when the user asks to set up the platform, get started, or bring this repo up on a new machine.
 ---
 
 # Set Up the Platform
 
 > _**Coding-agent workflow** — a `/slash-command` your coding agent (Claude Code, Codex, others) runs while developing this repo. Invoke it by name (e.g. `/setup-platform`) or describe the task and it triggers automatically._
 
-You are taking the user from a fresh clone to a running platform with a real agent answer from **their** IBM i system. The wow moment is Step 5 — one of the shipped agents reporting live system status from their machine, minutes after cloning. Everything before it is setup; everything after it is handing over the loop.
+You are taking the user from a fresh clone to a running platform with a real agent answer from **their** IBM i system. The wow moment is Step 6 — one of the shipped agents reporting live system status from their machine, minutes after cloning. Everything before it is setup; everything after it is handing over the loop.
 
 **Be self-driving:** anything you can do — open a file, open a URL, launch an app — do it. Stop when progress needs a human: typing a secret, installing software, a sign-in the flow can't continue without. When you do stop, tell the user exactly what to do. Never print or echo secret values.
 
@@ -18,10 +18,11 @@ Kicking off /setup-platform. Here's the map for this trip:
 
 1. Podman — confirm the runtime and its compose provider (guided install if missing)
 2. Environment — .env: a model API key + your IBM i credentials
-3. Boot — build and start the three platform containers
-4. Prove it — a real agent answer from your IBM i
-5. Connect the UI — os.agno.com, one click
-6. Hand over the loop — the six shipped agents and how to build your own
+3. IBM i CLI — project-scoped `.ibmi/` config for the `ibmi` authoring tool
+4. Boot — build and start the three platform containers
+5. Prove it — a real agent answer from your IBM i
+6. Connect the UI — os.agno.com, one click
+7. Hand over the loop — the six shipped agents and how to build your own
 ```
 
 ## 1. Read the manual
@@ -59,7 +60,41 @@ Run `cp .env.example .env`, then help the user fill in two groups:
 
 If a key is already set in their shell, say you found one and offer to copy it in — move the value across without reading or printing it. Otherwise open `.env` in their editor (cursor, code, etc.) and ask them to paste values in. Never open a terminal editor like vim or nano from your own shell — it will hang the session.
 
-## 4. Boot
+## 4. IBM i CLI — project-scoped
+
+The `ibmi` CLI is the host-side authoring tool the agent-development loop leans on ([`docs/ibmi-cli.md`](../../../docs/ibmi-cli.md)). Set it up **project-scoped**: the CLI uses the nearest `.ibmi/config.yaml` (walking up from the working directory) and it overrides `~/.ibmi/config.yaml`, so a `.ibmi/` dir in this repo sandboxes every connection the user adds here — nothing leaks into, or reads from, their global config. The dir is git-ignored.
+
+- **Install check**: `ibmi --version` (or `ibmi --help`). If missing, install it — `npm install -g @ibm/ibmi-cli` (Node 18+) — or note they can come back to this later: the platform runs without it; only tool authoring (`/create-agent`, `/extend-agent`) needs it.
+- **Create the project config** — seeded with `${VAR}` references so the credentials live only in `.env`:
+
+  ```bash
+  mkdir -p .ibmi
+  cat > .ibmi/config.yaml <<'EOF'
+  # Project-scoped ibmi CLI connections — the nearest .ibmi/config.yaml wins
+  # over ~/.ibmi/config.yaml, so systems added in this repo stay sandboxed
+  # to it. ${VAR} references expand from the environment at load time; load
+  # .env into the shell first:  set -a; source .env; set +a
+  default: dev
+  systems:
+    dev:
+      host: ${DB2i_HOST}
+      user: ${DB2i_USER}
+      password: ${DB2i_PASS}
+  EOF
+  ```
+
+- **Verify** against their system:
+
+  ```bash
+  set -a; source .env; set +a
+  ibmi sql "VALUES CURRENT_DATE"
+  ```
+
+  Today's date as a one-row table = the CLI and the platform now share one set of credentials. If it fails, the same `DB2i_*` values will also fail the MCP server in Step 5's boot — fix them here, once.
+
+Tell the user the sandbox rule in one line: any further system they add from inside this repo (`ibmi system add prod --host … --user …`) lands in the project's `.ibmi/config.yaml`, scoped to this project only.
+
+## 5. Boot
 
 Start the platform with `podman compose up -d --build`. Three containers come up: `agentos-db` (Postgres + pgvector), `ibmi-mcp-server` (the IBM i tools server), and `agentos-api` (the agents). Poll until both health probes pass (the first build takes a few minutes):
 
@@ -70,7 +105,7 @@ curl -sSf http://localhost:3010/healthz    # IBM i MCP server
 
 If either never comes up, read `podman compose logs agentos-api` / `podman compose logs ibmi-mcp-server` and fix what you find. The MCP server failing health is almost always the IBM i credentials in `.env`.
 
-## 5. Prove it
+## 6. Prove it
 
 Ask the Performance Monitor for live system status — it reads `QSYS2` services that exist on every IBM i, so it works regardless of what's installed:
 
@@ -87,7 +122,7 @@ jq -r '.content // .' < /tmp/setup-check.json
 
 Quote the answer to the user — that's their IBM i talking, through an agent they now own.
 
-## 6. Connect the AgentOS UI
+## 7. Connect the AgentOS UI
 
 Their platform is live — show them how to connect the AgentOS UI, where they chat with agents and inspect sessions, memory, and traces. Render the connection details as a table:
 
@@ -98,9 +133,9 @@ Their platform is live — show them how to connect the AgentOS UI, where they c
 | Endpoint | `http://localhost:8000` |
 | Name | `IBM i AgentOS` (or their choice) |
 
-Follow the table with one line of direction: https://os.agno.com, sign in, **Connect OS**, fill the form from the table. Don't gate on the click — roll straight into Step 7 while it connects; if they'd rather skip the UI, carry on.
+Follow the table with one line of direction: https://os.agno.com, sign in, **Connect OS**, fill the form from the table. Don't gate on the click — roll straight into Step 8 while it connects; if they'd rather skip the UI, carry on.
 
-## 7. Hand over the loop
+## 8. Hand over the loop
 
 Finish with a short summary: the six shipped agents (`ibmi-text2sql`, `ibmi-performance-monitor`, `ibmi-security-audit`, `ibmi-library-list-ops`, `ibmi-ptf-management`, `ibmi-sample` — one line each from [`app/config.yaml`](../../../app/config.yaml)), and the loop the user now owns:
 

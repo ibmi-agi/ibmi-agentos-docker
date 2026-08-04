@@ -46,7 +46,7 @@ ibmi sql "VALUES CURRENT_DATE"
 
 You should see today's date printed as a one-row table.
 
-For multiple systems (dev / prod / lpar-a / lpar-b …), use named connections — they live in `.ibmi/config.yaml` and take priority over the `DB2i_*` env vars:
+For multiple systems (dev / prod / lpar-a / lpar-b …), use named connections — they live in `.ibmi/config.yaml` and take priority over the `DB2i_*` env vars. The CLI reads the **nearest `.ibmi/config.yaml`** walking up from the working directory, and it overrides the user-level `~/.ibmi/config.yaml` — so this template keeps a **project-scoped `.ibmi/` at the repo root** (git-ignored; `/setup-platform` seeds it with a `dev` system whose fields are `${DB2i_*}` references into `.env`). Systems you add from inside the repo land there, sandboxed to this project:
 
 ```bash
 ibmi system add dev --host dev.ibmi.example.com --user MYUSER     # prompts for password

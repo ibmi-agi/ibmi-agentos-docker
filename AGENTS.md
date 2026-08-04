@@ -58,6 +58,8 @@ docs/                  Agent-authoring lifecycle prompts + reference docs
                        .claude/skills and .bob/skills symlink here
 .bob/                  Bob config home: mcp.json (the real file — root .mcp.json symlinks
                        to it) + skills symlink
+.ibmi/                 Project-scoped ibmi CLI connections (git-ignored; seeded by
+                       /setup-platform — nearest .ibmi/config.yaml wins over ~/.ibmi)
 scripts/               format / validate / generate_requirements / venv_setup / build_image
 parse_mcp_tools.py     tools/*.yaml -> tools/toolsets.json
 compose.yaml           Local stack (db + mcp + api)
@@ -183,8 +185,9 @@ Vendor-specific config like `.claude/settings.json` stays a real file in its own
 
 - **`/setup-platform`** — fresh clone to a running platform: Podman check (guided
   install of podman + podman-compose if missing), `.env` (model key + IBM i
-  credentials), boot the three containers, prove a real agent answer against the
-  user's IBM i, connect the AgentOS UI.
+  credentials), project-scoped `.ibmi/` config for the `ibmi` CLI, boot the three
+  containers, prove a real agent answer against the user's IBM i, connect the
+  AgentOS UI.
 - **`/create-agent`** — add a new IBM i agent: design/build its SQL toolset with the
   `ibmi` CLI, scaffold the module, register it, smoke-test it live.
 - **`/extend-agent`** — you drive. Add a tool or toolset, add a capability, refine

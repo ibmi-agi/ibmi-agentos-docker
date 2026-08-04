@@ -64,6 +64,12 @@ Thumbs.db
 # =========================
 tmp
 
+# Project-scoped ibmi CLI connections (created by /setup-platform). The nearest
+# .ibmi/config.yaml wins over ~/.ibmi/config.yaml, so connections added inside
+# this repo stay sandboxed to it — and stay out of git: the config names real
+# hosts/users even though passwords resolve via ${DB2i_*} env references.
+.ibmi/
+
 # Coding-agent config: the vendor-neutral skills live in .agents/skills/
 # (committed); .claude/skills is a committed symlink into it, and
 # .claude/settings.json ships shared permissions. Everything else under
