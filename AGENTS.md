@@ -45,6 +45,8 @@ app/
 db/                    Postgres helpers (url.py, session.py)
 tools/                 IBM i tool YAMLs + generated toolsets.json + schema
 docs/                  Agent-authoring lifecycle prompts + reference docs
+.agents/skills/        Coding-agent workflows (/setup-platform, /create-agent, /extend-agent,
+                       /improve-agent, /review-and-improve); .claude/skills symlinks here
 scripts/               format / validate / generate_requirements / venv_setup / build_image
 parse_mcp_tools.py     tools/*.yaml -> tools/toolsets.json
 compose.yaml           Local stack (db + mcp + api)
@@ -59,8 +61,9 @@ Mirror an existing agent module (e.g. `agents/performance_agent.py`): module-lev
 blocks from `common.py` (`{GUARDRAILS} {DATA_HANDLING} {ERROR_HANDLING} {AUDIT} {WEB}
 {USER_CONTEXT}`), a `tools=[MCPTools(...include_tools=get_toolset("..."))] + *web_tools()`
 list, and a single `Agent(...)`. Register the instance in `app/main.py`'s `agents=[...]`,
-add quick prompts to `app/config.yaml`, restart `agentos-api`. See
-[`docs/create-new-agent.md`](docs/create-new-agent.md).
+add quick prompts to `app/config.yaml`, restart `agentos-api`. The
+[`create-agent`](.agents/skills/create-agent/SKILL.md) skill runs this loop end to end;
+[`docs/create-new-agent.md`](docs/create-new-agent.md) is the long-form field manual.
 
 ### Adding tools
 
@@ -110,4 +113,28 @@ docker compose up -d && \
 - **No auth layer** — single-tenant; the MCP server uses one shared IBM i identity from `.env`
 - **No knowledge / learning / evals scaffolding** — keep the template minimal; add what you need
 - **No team-member deep-copy variants** — agents are single-form
-```
+
+## Working with coding agents
+
+Dev-time **coding-agent workflows** live in [`.agents/skills/`](.agents/skills/) — the
+vendor-neutral home for coding-agent assets, mirroring how `CLAUDE.md` symlinks to
+`AGENTS.md`. `.claude/skills` is a committed symlink into it, so Claude Code picks the
+skills up on every clone with no setup step; other harnesses (Codex, Cursor, …) can
+symlink the same folder. (Windows needs developer mode or `core.symlinks=true` for the
+symlink to materialize.) Claude-specific config like `.claude/settings.json` stays a
+real file in `.claude/`.
+
+- **`/setup-platform`** — fresh clone to a running platform: Docker check, `.env` (model
+  key + IBM i credentials), boot the three containers, prove a real agent answer against
+  the user's IBM i, connect the AgentOS UI.
+- **`/create-agent`** — add a new IBM i agent: design/build its SQL toolset with the
+  `ibmi` CLI, scaffold the module, register it, smoke-test it live.
+- **`/extend-agent`** — you drive. Add a tool or toolset, add a capability, refine
+  `INSTRUCTIONS`, fix a known bug — one verified change per iteration.
+- **`/improve-agent`** — Claude drives. Derives probes from the agent's `INSTRUCTIONS`
+  and real usage in the database, judges, edits, re-probes. No user input needed.
+- **`/review-and-improve`** — repo-wide drift sweep (docs vs code vs config).
+
+Invoke a skill by name (`/extend-agent`) or just describe the task — Claude Code matches
+it from the skill's `description`. The `docs/*.md` files are the long-form field manuals
+the skills lean on (tool YAML schema, `ibmi` CLI setup, worked examples).

@@ -63,7 +63,14 @@ Thumbs.db
 # Project-specific
 # =========================
 tmp
-.claude
+
+# Coding-agent config: the vendor-neutral skills live in .agents/skills/
+# (committed); .claude/skills is a committed symlink into it, and
+# .claude/settings.json ships shared permissions. Everything else under
+# .claude/ (local settings, other agents' state) stays local.
+.claude/*
+!.claude/skills
+!.claude/settings.json
 
 # Optional: local PyPI creds (uncomment if you ever create it)
 # .pypirc
