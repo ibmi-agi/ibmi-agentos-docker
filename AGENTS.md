@@ -168,9 +168,10 @@ symlink the same folder. (Windows needs developer mode or `core.symlinks=true` f
 symlink to materialize.) Claude-specific config like `.claude/settings.json` stays a
 real file in `.claude/`.
 
-- **`/setup-platform`** — fresh clone to a running platform: Docker check, `.env` (model
-  key + IBM i credentials), boot the three containers, prove a real agent answer against
-  the user's IBM i, connect the AgentOS UI.
+- **`/setup-platform`** — fresh clone to a running platform: Podman check (guided
+  install of podman + podman-compose if missing), `.env` (model key + IBM i
+  credentials), boot the three containers, prove a real agent answer against the
+  user's IBM i, connect the AgentOS UI.
 - **`/create-agent`** — add a new IBM i agent: design/build its SQL toolset with the
   `ibmi` CLI, scaffold the module, register it, smoke-test it live.
 - **`/extend-agent`** — you drive. Add a tool or toolset, add a capability, refine

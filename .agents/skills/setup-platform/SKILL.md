@@ -1,6 +1,6 @@
 ---
 name: setup-platform
-description: Set up this IBM i AgentOS from a fresh clone — confirm Docker, configure .env (model key + IBM i credentials), boot the three containers, prove a real agent answer against the user's IBM i, connect the AgentOS UI, then hand over the agent-development loop. Use when the user asks to set up the platform, get started, or bring this repo up on a new machine.
+description: Set up this IBM i AgentOS from a fresh clone — confirm Podman and its compose provider (guiding the install if missing), configure .env (model key + IBM i credentials), boot the three containers, prove a real agent answer against the user's IBM i, connect the AgentOS UI, then hand over the agent-development loop. Use when the user asks to set up the platform, get started, or bring this repo up on a new machine.
 ---
 
 # Set Up the Platform
@@ -16,7 +16,7 @@ You are taking the user from a fresh clone to a running platform with a real age
 ```text
 Kicking off /setup-platform. Here's the map for this trip:
 
-1. Docker — confirm it's installed and running
+1. Podman — confirm the runtime and its compose provider (guided install if missing)
 2. Environment — .env: a model API key + your IBM i credentials
 3. Boot — build and start the three platform containers
 4. Prove it — a real agent answer from your IBM i
@@ -28,9 +28,27 @@ Kicking off /setup-platform. Here's the map for this trip:
 
 Read [`AGENTS.md`](../../../AGENTS.md) end to end — it's the source of truth for how this platform works and answers most questions you'll hit along the way.
 
-## 2. Docker
+## 2. Podman
 
-Confirm Docker is installed and running (`docker info` succeeds). If it's installed but not running, start it (`open -a Docker` on macOS) and poll until it's up. Stop for the user only if Docker isn't installed — give them the steps to install Docker Desktop and wait.
+This skill's runtime is **Podman** (daemonless, no Docker Desktop). Two pieces have to check out:
+
+- **The runtime**: `podman info` succeeds. On macOS and Windows, Podman runs containers in a VM — if `podman info` fails but `podman` exists, check `podman machine list`: no machine → `podman machine init`; a stopped machine → `podman machine start`, then poll `podman info` until it's up. On Linux there's no machine step.
+- **The compose provider**: `podman compose version` succeeds. `podman compose` delegates to an external provider (`podman-compose`) — Podman alone isn't enough to bring the stack up.
+
+**If Podman (or the compose provider) isn't installed, stop and hand the user the setup** — don't install it for them, and don't fall back to Docker:
+
+- **macOS**:
+
+  ```bash
+  brew install podman podman-compose
+  podman machine init
+  podman machine start
+  ```
+
+- **Linux**: install both from the distro's package manager — `sudo apt install podman podman-compose` (Debian/Ubuntu) or `sudo dnf install podman podman-compose` (Fedora/RHEL). No machine step needed.
+- **Windows**: install [Podman Desktop](https://podman-desktop.io) (or `winget install RedHat.Podman`), then `podman machine init` + `podman machine start`, and `pip install podman-compose` for the compose provider.
+
+Wait for them to confirm, then re-run both checks (`podman info`, `podman compose version`) before moving on.
 
 ## 3. Environment
 
@@ -43,14 +61,14 @@ If a key is already set in their shell, say you found one and offer to copy it i
 
 ## 4. Boot
 
-Start the platform with `docker compose up -d --build`. Three containers come up: `agentos-db` (Postgres + pgvector), `ibmi-mcp-server` (the IBM i tools server), and `agentos-api` (the agents). Poll until both health probes pass (the first build takes a few minutes):
+Start the platform with `podman compose up -d --build`. Three containers come up: `agentos-db` (Postgres + pgvector), `ibmi-mcp-server` (the IBM i tools server), and `agentos-api` (the agents). Poll until both health probes pass (the first build takes a few minutes):
 
 ```bash
 curl -sSf http://localhost:8000/health     # AgentOS API
 curl -sSf http://localhost:3010/healthz    # IBM i MCP server
 ```
 
-If either never comes up, read `docker compose logs agentos-api` / `docker compose logs ibmi-mcp-server` and fix what you find. The MCP server failing health is almost always the IBM i credentials in `.env`.
+If either never comes up, read `podman compose logs agentos-api` / `podman compose logs ibmi-mcp-server` and fix what you find. The MCP server failing health is almost always the IBM i credentials in `.env`.
 
 ## 5. Prove it
 
