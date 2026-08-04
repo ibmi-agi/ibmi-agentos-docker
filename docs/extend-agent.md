@@ -13,7 +13,7 @@ Loop: clarify → introspect → validate SQL → preview → author YAML → sm
 
 - Stack up: `curl -sSf http://localhost:8000/healthz` and `curl -sSf http://localhost:3010/healthz` both return 200.
 - The user has named (a) the existing agent (slug — the SAMPLE Data Agent is `ibmi-sample`) and (b) the capability they want to add.
-- `ibmi` CLI working: `ibmi sql "VALUES CURRENT_DATE"` returns today's date. Used for introspection and SQL validation. Setup: [`docs/ibmi-cli.md`](ibmi-cli.md).
+- `ibmi` CLI working: `ibmi sql "SELECT CURRENT_DATE FROM SYSIBM.SYSDUMMY1"` returns today's date. Used for introspection and SQL validation. Setup: [`docs/ibmi-cli.md`](ibmi-cli.md).
 
 If the capability isn't naturally an IBM i SQL tool (e.g. it's a new agent persona, or it's purely CL with no SQL surface), route the user to [`docs/create-new-agent.md`](create-new-agent.md) instead.
 
@@ -153,8 +153,8 @@ curl -s http://localhost:3010/mcp/tools | jq '.tools[].name' | grep <new-tool-na
 If the tool doesn't appear:
 
 ```bash
-docker compose logs ibmi-mcp-server --tail 50    # check for reload errors
-docker compose restart ibmi-mcp-server           # nuclear option
+podman compose logs ibmi-mcp-server --tail 50    # check for reload errors
+podman compose restart ibmi-mcp-server           # nuclear option
 ```
 
 ## 8. Wire into the agent
@@ -187,7 +187,7 @@ Then update the agent's inline `INSTRUCTIONS` f-string in `agents/<slug>.py` —
 ## 9. Restart and smoke test
 
 ```bash
-docker compose restart agentos-api
+podman compose restart agentos-api
 sleep 2
 curl -sS -X POST http://localhost:8000/agents/ibmi-<slug>/runs \
   -F message='<question only the new toolset can answer>'

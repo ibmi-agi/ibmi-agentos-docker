@@ -52,6 +52,10 @@ agent_os = AgentOS(
     name="IBM i AgentOS",
     tracing=True,
     lifespan=lifespan,
+    # MCP interface at /mcp (streamable HTTP, same port as the REST API) —
+    # chat apps and coding agents drive the agents through it. No auth layer
+    # in this template, so it shares the API's network-posture boundary.
+    mcp_server=True,
     db=get_postgres_db(),
     agents=[
         text2sql_agent,

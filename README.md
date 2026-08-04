@@ -1,6 +1,6 @@
 # IBM i AgentOS — Docker Template
 
-Run a multi-agent system for IBM i on Agno AgentOS, with Docker.
+Run a multi-agent system for IBM i on Agno AgentOS, with Podman.
 
 [What is AgentOS?](https://docs.agno.com/agent-os/introduction) · [Agno Docs](https://docs.agno.com) · [Discord](https://agno.com/discord) · [IBM i MCP Server](https://github.com/IBM/ibmi-mcp-server)
 
@@ -27,7 +27,7 @@ endpoint, routed through a synthesizing sub-agent so the main agent's context st
 
 ### Prerequisites
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop)
+- [Podman](https://podman.io) + `podman-compose` — e.g. `brew install podman podman-compose`, then `podman machine init && podman machine start` (macOS/Windows; no machine step on Linux)
 - [Anthropic API key](https://console.anthropic.com/settings/keys) (or another provider's key)
 - An IBM i user profile with the [Mapepire](https://ibm-d95bab6e.mintlify.app/quickstart) database server installed on the system
 
@@ -61,12 +61,13 @@ DB2i_PASS=your-ibmi-password
 
 ### 3. Start locally
 ```sh
-docker compose up -d --build
+podman compose up -d --build
 ```
 
 - **API**: http://localhost:8000
 - **Docs**: http://localhost:8000/docs
-- **MCP server**: http://localhost:3010/healthz
+- **AgentOS MCP interface**: http://localhost:8000/mcp
+- **IBM i MCP server (tools)**: http://localhost:3010/healthz
 - **Database**: localhost:5432
 
 ### 4. Connect to control plane
@@ -74,6 +75,21 @@ docker compose up -d --build
 1. Open [os.agno.com](https://os.agno.com)
 2. Click "Add OS" → "Local"
 3. Enter `http://localhost:8000`
+
+### 5. Drive the agents over MCP (optional)
+
+The platform itself is an MCP server (streamable HTTP at `/mcp`, same port as the
+REST API): chat apps and coding agents run the agents through generic tools like
+`run_agent(agent_id, message)`. The repo's [`.bob/mcp.json`](.bob/mcp.json) (symlinked
+from `.mcp.json`) already registers it for coding agents working in this checkout;
+elsewhere, register it by hand:
+
+```sh
+claude mcp add --transport http agentos http://localhost:8000/mcp
+```
+
+There is no auth layer in this template, so `/mcp` shares the API's
+network-posture boundary — keep it private in production.
 
 ---
 
@@ -261,9 +277,11 @@ answer, so raw search snippets never enter the main agent's context window.
 ├── db/
 │   ├── session.py                       # PostgresDb factory
 │   └── url.py                           # Connection URL builder
+├── evals/                               # Eval suite (python -m evals)
 ├── scripts/                             # Helper scripts (format, validate, build, ...)
 ├── parse_mcp_tools.py                   # tools/*.yaml -> tools/toolsets.json
-├── compose.yaml                         # Docker Compose stack
+├── compose.yaml                         # Compose stack (podman compose)
+├── compose.prod.yaml                    # Production override
 └── pyproject.toml                       # Dependencies
 ```
 
@@ -308,7 +326,7 @@ agent_os = AgentOS(
 )
 ```
 
-3. Restart: `docker compose restart agentos-api`
+3. Restart: `podman compose restart agentos-api`
 
 ### Add tools to an agent
 
@@ -330,7 +348,7 @@ Agno also ships 100+ tool integrations — see the [full list](https://docs.agno
 
 1. Edit `pyproject.toml`
 2. Regenerate requirements: `./scripts/generate_requirements.sh`
-3. Rebuild: `docker compose up -d --build`
+3. Rebuild: `podman compose up -d --build`
 
 ### Use a different model provider
 
@@ -343,13 +361,13 @@ AGENT_MODEL=openai:gpt-4o
 # or google:gemini-2.0-flash, groq:llama-3.3-70b-versatile, ollama:llama3.3, ...
 # Full list: https://docs.agno.com/models/providers/model-index
 ```
-3. Restart: `docker compose restart agentos-api`
+3. Restart: `podman compose restart agentos-api`
 
 ---
 
 ## Local Development
 
-For development without the full Docker stack:
+For development without the full container stack:
 ```sh
 # Install uv
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -359,11 +377,31 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 source .venv/bin/activate
 
 # Start PostgreSQL + MCP server (required)
-docker compose up -d agentos-db ibmi-mcp-server
+podman compose up -d agentos-db ibmi-mcp-server
+
+# Host-side runs reach the MCP server via its published port
+export MCP_URL=http://localhost:3010/mcp
 
 # Run the app
 python -m app.main
 ```
+
+### Run the evals
+
+A small suite in `evals/` probes the live agents — schema discovery, system status,
+prompt-injection defense, PTF currency, and more. Cases run in-process on the host
+against your configured IBM i (read-only), so they need the `agentos-db` and
+`ibmi-mcp-server` containers up plus your model key and IBM i credentials in `.env`:
+
+```sh
+source .venv/bin/activate
+python -m evals --tag smoke     # fast core
+python -m evals --tag release   # all cases
+```
+
+The LLM judge follows `AGENT_MODEL` (override with `EVALS_JUDGE_MODEL`). Results log to
+Postgres and show up at [os.agno.com](https://os.agno.com). To add coverage for your own
+agents, run the `/create-evals` skill; to repair a failing suite, `/eval-and-improve`.
 
 ### Regenerate toolsets.json
 
@@ -378,6 +416,32 @@ This parses every YAML in `tools/`, validates against the MCP server schema, and
 
 ---
 
+## Run in production
+
+```sh
+podman compose -f compose.yaml -f compose.prod.yaml up -d --build
+```
+
+The `compose.prod.yaml` override drops the dev bind mount and hot reload (the container
+runs the code baked into the image), turns off debug logging, and rebinds Postgres and
+the `ibmi-mcp-server` to loopback so neither is reachable from off-host. The
+`!reset`/`!override` merge tags it uses need podman-compose 1.5+ (or, if
+`podman compose` delegates to docker-compose, v2.24.4+).
+
+**This template ships no auth layer** — it is single-tenant by design, so network
+posture is the security boundary. Keep port 8000 private (LAN, VPN, or an
+authenticating reverse proxy / tunnel); don't point a public DNS name at it bare. Set a
+strong `DB_PASS` in `.env` — the dev default is `ai`/`ai`.
+
+After a code change, rebuild and restart:
+
+```sh
+podman compose -f compose.yaml -f compose.prod.yaml up -d --build
+podman compose -f compose.yaml -f compose.prod.yaml logs -f agentos-api
+```
+
+---
+
 ## Environment Variables
 
 | Variable | Required | Default | Description |
@@ -388,9 +452,11 @@ This parses every YAML in `tools/`, validates against the MCP server schema, and
 | `DB2i_PASS` | Yes | - | IBM i password |
 | `AGENT_MODEL` | No | `anthropic:claude-sonnet-4-5` | Model for agents ([provider index](https://docs.agno.com/models/providers/model-index)) |
 | `AGENT_TEAM_MEMBER_MODEL` | No | `anthropic:claude-haiku-4-5` | Lightweight model for sub-agents |
+| `EVALS_JUDGE_MODEL` | No | follows `AGENT_MODEL` | Model for the eval suite's LLM judge |
 | `PARALLEL_API_KEY` | No | - | Parallel key for `query_web` (keyless works without it) |
 | `OPENAI_API_KEY` | No | - | Embedder for agentic memory recall |
 | `MCP_SERVER_VERSION` | No | `v0.5.1` | `ghcr.io/ibm/ibmi-mcp-server` image tag |
+| `MCP_URL` | No | `http://ibmi-mcp-server:3010/mcp` | MCP server URL as the agents see it (use `http://localhost:3010/mcp` for host-side runs) |
 | `DB_HOST` | No | `localhost` | PostgreSQL host |
 | `DB_PORT` | No | `5432` | PostgreSQL port |
 | `DB_USER` | No | `ai` | PostgreSQL user |

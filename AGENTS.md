@@ -5,7 +5,7 @@ working in this repo. `CLAUDE.md` is a symlink to this file — edit one, both u
 
 ## What this repo is
 
-A starter for building IBM i agents on **Agno AgentOS**, deployed with Docker:
+A starter for building IBM i agents on **Agno AgentOS**, deployed with Podman:
 
 - **Agents** are Python modules under `agents/`, registered explicitly in `app/main.py` —
   no registry, no autoloader, just a literal `agents=[...]` list. Six agents ship:
@@ -24,7 +24,14 @@ A starter for building IBM i agents on **Agno AgentOS**, deployed with Docker:
   default; `PARALLEL_API_KEY` raises the rate ceiling.
 - **Storage** is Postgres + pgvector via `agno.db.postgres.PostgresDb` — sessions,
   memory, traces in one place.
-- **The runtime stack** is `docker compose up -d` → `agentos-db`, `ibmi-mcp-server`,
+- **MCP interface**: `mcp_server=True` in `app/main.py` mounts an MCP server
+  (streamable HTTP) at `/mcp` on the same port as the REST API — chat apps and coding
+  agents drive the agents through generic tools (`get_agentos_config`, `run_agent`,
+  `get_sessions`, …). Don't confuse the two MCP surfaces: `/mcp` on :8000 is how
+  clients drive *this platform*; `ibmi-mcp-server` on :3010 is where the agents get
+  their *IBM i tools*. No auth layer here, so `/mcp` shares the API's network-posture
+  boundary.
+- **The runtime stack** is `podman compose up -d` → `agentos-db`, `ibmi-mcp-server`,
   `agentos-api`. Local dev hot-reloads code under `agents/`, `app/`, `db/`.
 
 ## Repo layout
@@ -43,11 +50,20 @@ app/
   main.py              AgentOS instantiation, literal agent list, web lifespan
   config.yaml          chat quick-prompts per agent id
 db/                    Postgres helpers (url.py, session.py)
+evals/                 Eval suite (cases.py; run with `python -m evals`)
 tools/                 IBM i tool YAMLs + generated toolsets.json + schema
 docs/                  Agent-authoring lifecycle prompts + reference docs
+.agents/skills/        Coding-agent workflows (/setup-platform, /create-agent, /extend-agent,
+                       /improve-agent, /create-evals, /eval-and-improve, /review-and-improve);
+                       .claude/skills and .bob/skills symlink here
+.bob/                  Bob config home: mcp.json (the real file — root .mcp.json symlinks
+                       to it) + skills symlink
+.ibmi/                 Project-scoped ibmi CLI connections (git-ignored; seeded by
+                       /setup-platform — nearest .ibmi/config.yaml wins over ~/.ibmi)
 scripts/               format / validate / generate_requirements / venv_setup / build_image
 parse_mcp_tools.py     tools/*.yaml -> tools/toolsets.json
 compose.yaml           Local stack (db + mcp + api)
+compose.prod.yaml      Production override (no bind mount/reload, loopback db + mcp)
 ```
 
 ## Working conventions
@@ -59,8 +75,9 @@ Mirror an existing agent module (e.g. `agents/performance_agent.py`): module-lev
 blocks from `common.py` (`{GUARDRAILS} {DATA_HANDLING} {ERROR_HANDLING} {AUDIT} {WEB}
 {USER_CONTEXT}`), a `tools=[MCPTools(...include_tools=get_toolset("..."))] + *web_tools()`
 list, and a single `Agent(...)`. Register the instance in `app/main.py`'s `agents=[...]`,
-add quick prompts to `app/config.yaml`, restart `agentos-api`. See
-[`docs/create-new-agent.md`](docs/create-new-agent.md).
+add quick prompts to `app/config.yaml`, restart `agentos-api`. The
+[`create-agent`](.agents/skills/create-agent/SKILL.md) skill runs this loop end to end;
+[`docs/create-new-agent.md`](docs/create-new-agent.md) is the long-form field manual.
 
 ### Adding tools
 
@@ -92,6 +109,47 @@ Reused across SQL agents (see `agents/utils/common.py::DATA_HANDLING`):
   column-referencing SQL — Tech Refresh level changes what's available
 - Call `validate_query` before `execute_sql`; confirm before any destructive op
 
+### Evals
+
+The suite lives in [`evals/`](evals/) and runs on agno's eval runner: each `Case` in
+`evals/cases.py` probes a live agent and is judged by `AgentAsJudgeEval` (`criteria`)
+and/or `ReliabilityEval` (`expected_tool_calls`). Cases run the agents **in-process on
+the host** against the live stack — they need `agentos-db` and `ibmi-mcp-server` up, a
+model key in `.env`, and real IBM i credentials; every case runs real (read-only) SQL
+against the configured system, so run the suite deliberately, not on a schedule. The
+runner defaults `MCP_URL` to `http://localhost:3010/mcp` for host-side runs.
+
+```bash
+source .venv/bin/activate
+python -m evals --tag smoke     # fast core: schema discovery, status, injection, PTF
+python -m evals --tag release   # all cases
+python -m evals --name <case>   # one case
+```
+
+Keep new cases read-only by construction (the shipped ones are), and tag them `smoke`
+(fast core) or `release` (everything). The LLM judge follows `AGENT_MODEL`; set
+`EVALS_JUDGE_MODEL` to use a different judge. Results log to Postgres via `eval_db`
+and are visible at os.agno.com.
+
+Two skills work this suite from opposite ends: to author coverage — especially for
+agents you build, which start with none — run
+[`/create-evals`](.agents/skills/create-evals/SKILL.md); to diagnose failures and fix
+in scope, run [`/eval-and-improve`](.agents/skills/eval-and-improve/SKILL.md).
+
+### Running in production
+
+```bash
+podman compose -f compose.yaml -f compose.prod.yaml up -d --build
+```
+
+[`compose.prod.yaml`](compose.prod.yaml) drops the dev bind mount and hot reload,
+turns off debug logging, and rebinds Postgres **and** the ibmi-mcp-server to loopback
+so neither is internet-reachable. This template ships no auth layer (see the deliberate
+cuts below), so network posture is the security boundary: keep port 8000 private (LAN,
+VPN, or an authenticating reverse proxy), and set a strong `DB_PASS` in `.env`. The
+`!reset`/`!override` merge tags need podman-compose 1.5+ (or, if `podman compose`
+delegates to docker-compose, v2.24.4+).
+
 ### Validation gate
 
 Before committing, all of these must be green:
@@ -99,7 +157,7 @@ Before committing, all of these must be green:
 ```bash
 bash scripts/format.sh                      # ruff format
 bash scripts/validate.sh                    # ruff check + mypy + tool YAML schema validation
-docker compose up -d && \
+podman compose up -d && \
   curl -sSf http://localhost:8000/health    # the stack actually starts
 ```
 
@@ -108,6 +166,41 @@ docker compose up -d && \
 - **No `app/registry.py` / `app/factory.py`** — explicit imports in `app/main.py` only
 - **No CLI** — drive agents via the AgentOS API / control plane, not a host REPL
 - **No auth layer** — single-tenant; the MCP server uses one shared IBM i identity from `.env`
-- **No knowledge / learning / evals scaffolding** — keep the template minimal; add what you need
+- **No knowledge / learning scaffolding** — keep the template minimal; add what you need
+  (the eval suite in `evals/` is the one exception — kept small and read-only)
 - **No team-member deep-copy variants** — agents are single-form
-```
+
+## Working with coding agents
+
+Dev-time **coding-agent workflows** live in [`.agents/skills/`](.agents/skills/) — the
+vendor-neutral home for coding-agent assets, mirroring how `CLAUDE.md` symlinks to
+`AGENTS.md`. `.claude/skills` and `.bob/skills` are committed symlinks into it, so
+Claude Code and Bob pick the skills up on every clone with no setup step; other
+harnesses (Codex, Cursor, …) can symlink the same folder. (Windows needs developer
+mode or `core.symlinks=true` for the symlinks to materialize.) MCP client config
+follows the same pattern with `.bob/` as the home: [`.bob/mcp.json`](.bob/mcp.json) is
+the real file — registering the `agno-docs` server and the platform's own `/mcp`
+endpoint (`agentos`) — and root `.mcp.json` symlinks to it for Claude Code.
+Vendor-specific config like `.claude/settings.json` stays a real file in its own dir.
+
+- **`/setup-platform`** — fresh clone to a running platform: Podman check (guided
+  install of podman + podman-compose if missing), `.env` (model key + IBM i
+  credentials), project-scoped `.ibmi/` config for the `ibmi` CLI, boot the three
+  containers, prove a real agent answer against the user's IBM i, connect the
+  AgentOS UI.
+- **`/create-agent`** — add a new IBM i agent: design/build its SQL toolset with the
+  `ibmi` CLI, scaffold the module, register it, smoke-test it live.
+- **`/extend-agent`** — you drive. Add a tool or toolset, add a capability, refine
+  `INSTRUCTIONS`, fix a known bug — one verified change per iteration.
+- **`/improve-agent`** — Claude drives. Derives probes from the agent's `INSTRUCTIONS`
+  and real usage in the database, judges, edits, re-probes. No user input needed.
+- **`/create-evals`** — author eval coverage for an agent: map what its instructions and
+  shared blocks promise, mine real sessions for scenarios, write read-only `Case`
+  entries with toolset-grounded assertions. How a user's own agents join the suite.
+- **`/eval-and-improve`** — run the eval suite, diagnose every failure (agent vs case vs
+  tool SQL vs environment), fix in scope until green.
+- **`/review-and-improve`** — repo-wide drift sweep (docs vs code vs config).
+
+Invoke a skill by name (`/extend-agent`) or just describe the task — Claude Code matches
+it from the skill's `description`. The `docs/*.md` files are the long-form field manuals
+the skills lean on (tool YAML schema, `ibmi` CLI setup, worked examples).

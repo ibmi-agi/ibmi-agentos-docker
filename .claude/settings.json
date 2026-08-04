@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./scripts/format.sh:*)",
+      "Bash(./scripts/validate.sh:*)",
+      "Bash(./scripts/venv_setup.sh:*)",
+      "Bash(./scripts/generate_requirements.sh:*)",
+      "Bash(source .venv/bin/activate:*)",
+      "Bash(uv run python parse_mcp_tools.py:*)",
+      "Bash(python -m evals:*)",
+      "Bash(podman compose up:*)",
+      "Bash(podman compose restart:*)",
+      "Bash(podman compose down:*)",
+      "Bash(podman logs:*)",
+      "Bash(podman inspect:*)",
+      "Bash(podman info:*)",
+      "Bash(podman machine list:*)",
+      "Bash(podman compose version:*)",
+      "Bash(curl -sSf http://localhost:8000/:*)",
+      "Bash(curl -sS -X POST http://localhost:8000/:*)",
+      "Bash(curl -s http://localhost:8000/:*)",
+      "Bash(curl -sSf http://localhost:3010/:*)",
+      "Bash(nc -z localhost:*)",
+      "Bash(jq:*)",
+      "WebFetch(domain:docs.agno.com)"
+    ]
+  }
+}

@@ -1,0 +1,40 @@
+# Production override — same stack, no dev conveniences, nothing but the API
+# reachable from off-host.
+#
+#   podman compose -f compose.yaml -f compose.prod.yaml up -d --build
+#
+# Switches RUNTIME_ENV to prd, turns off debug logging, and drops the dev bind
+# mount and hot reload so the container runs the code baked into the image.
+#
+# This template ships no auth layer (single-tenant by design — see AGENTS.md),
+# so network posture is the security boundary:
+#   - Postgres and the ibmi-mcp-server rebind to 127.0.0.1 — containers still
+#     reach them over the compose network, host-side tools (psql, python -m
+#     evals) still connect via localhost, but neither is internet-reachable.
+#     (published container ports can bypass ufw-style host firewalls, so a
+#     plain "5432:5432" publish really is public on a cloud host.)
+#   - The API on 8000 has no authentication. Keep it private (LAN, VPN, or an
+#     authenticating reverse proxy / tunnel) — do not point a public DNS name
+#     at it bare.
+#   - Set a strong DB_PASS and real IBM i credentials in .env — the dev
+#     defaults are ai/ai.
+#
+# The `!reset` tag removes the dev bind mount instead of merging with it;
+# `!override` replaces the ports lists below so the services rebind to
+# loopback instead of gaining a second mapping. Both need podman-compose 1.5+
+# (or, if `podman compose` delegates to docker-compose, v2.24.4+).
+services:
+  agentos-api:
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    volumes: !reset []
+    environment:
+      RUNTIME_ENV: prd
+      AGNO_DEBUG: "False"
+
+  agentos-db:
+    ports: !override
+      - "127.0.0.1:5432:5432"
+
+  ibmi-mcp-server:
+    ports: !override
+      - "127.0.0.1:3010:3010"
