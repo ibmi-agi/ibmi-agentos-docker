@@ -7,6 +7,8 @@ databases. Uses MCP tools for schema discovery, query validation, and execution.
 Test: python -m agents.text2sql_agent
 """
 
+from os import getenv
+
 from agno.agent import Agent
 from agno.tools.mcp import MCPTools
 
@@ -22,7 +24,10 @@ from agents.utils.common import (
 from agents.utils.web_context import web_tools
 from db import get_postgres_db
 
-MCP_URL = "http://ibmi-mcp-server:3010/mcp"
+# In the compose stack the API reaches the MCP server over the service network;
+# host-side runs (python -m evals, python -m app.main) set MCP_URL to the
+# published port instead: http://localhost:3010/mcp
+MCP_URL = getenv("MCP_URL", "http://ibmi-mcp-server:3010/mcp")
 
 # =============================================================================
 # Agent Configuration

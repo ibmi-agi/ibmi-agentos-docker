@@ -7,6 +7,7 @@
       "Bash(./scripts/generate_requirements.sh:*)",
       "Bash(source .venv/bin/activate:*)",
       "Bash(uv run python parse_mcp_tools.py:*)",
+      "Bash(python -m evals:*)",
       "Bash(docker compose up:*)",
       "Bash(docker compose restart:*)",
       "Bash(docker compose down:*)",

@@ -261,9 +261,11 @@ answer, so raw search snippets never enter the main agent's context window.
 ├── db/
 │   ├── session.py                       # PostgresDb factory
 │   └── url.py                           # Connection URL builder
+├── evals/                               # Eval suite (python -m evals)
 ├── scripts/                             # Helper scripts (format, validate, build, ...)
 ├── parse_mcp_tools.py                   # tools/*.yaml -> tools/toolsets.json
 ├── compose.yaml                         # Docker Compose stack
+├── compose.prod.yaml                    # Production override
 └── pyproject.toml                       # Dependencies
 ```
 
@@ -361,9 +363,27 @@ source .venv/bin/activate
 # Start PostgreSQL + MCP server (required)
 docker compose up -d agentos-db ibmi-mcp-server
 
+# Host-side runs reach the MCP server via its published port
+export MCP_URL=http://localhost:3010/mcp
+
 # Run the app
 python -m app.main
 ```
+
+### Run the evals
+
+A small suite in `evals/` probes the live agents — schema discovery, system status,
+prompt-injection defense, PTF currency, and more. Cases run in-process on the host
+against your configured IBM i (read-only), so they need the `agentos-db` and
+`ibmi-mcp-server` containers up plus your model key and IBM i credentials in `.env`:
+
+```sh
+source .venv/bin/activate
+python -m evals --tag smoke     # fast core
+python -m evals --tag release   # all cases
+```
+
+Results log to Postgres and show up at [os.agno.com](https://os.agno.com).
 
 ### Regenerate toolsets.json
 
@@ -375,6 +395,31 @@ uv run python parse_mcp_tools.py
 
 This parses every YAML in `tools/`, validates against the MCP server schema, and writes
 `tools/toolsets.json`. Agents load toolsets from this file at startup via `get_toolset()`.
+
+---
+
+## Run in production
+
+```sh
+docker compose -f compose.yaml -f compose.prod.yaml up -d --build
+```
+
+The `compose.prod.yaml` override drops the dev bind mount and hot reload (the container
+runs the code baked into the image), turns off debug logging, and rebinds Postgres and
+the `ibmi-mcp-server` to loopback so neither is reachable from off-host. Requires Docker
+Compose v2.24.4+.
+
+**This template ships no auth layer** — it is single-tenant by design, so network
+posture is the security boundary. Keep port 8000 private (LAN, VPN, or an
+authenticating reverse proxy / tunnel); don't point a public DNS name at it bare. Set a
+strong `DB_PASS` in `.env` — the dev default is `ai`/`ai`.
+
+After a code change, rebuild and restart:
+
+```sh
+docker compose -f compose.yaml -f compose.prod.yaml up -d --build
+docker compose -f compose.yaml -f compose.prod.yaml logs -f agentos-api
+```
 
 ---
 
@@ -391,6 +436,7 @@ This parses every YAML in `tools/`, validates against the MCP server schema, and
 | `PARALLEL_API_KEY` | No | - | Parallel key for `query_web` (keyless works without it) |
 | `OPENAI_API_KEY` | No | - | Embedder for agentic memory recall |
 | `MCP_SERVER_VERSION` | No | `v0.5.1` | `ghcr.io/ibm/ibmi-mcp-server` image tag |
+| `MCP_URL` | No | `http://ibmi-mcp-server:3010/mcp` | MCP server URL as the agents see it (use `http://localhost:3010/mcp` for host-side runs) |
 | `DB_HOST` | No | `localhost` | PostgreSQL host |
 | `DB_PORT` | No | `5432` | PostgreSQL port |
 | `DB_USER` | No | `ai` | PostgreSQL user |

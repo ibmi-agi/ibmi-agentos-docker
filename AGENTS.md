@@ -43,6 +43,7 @@ app/
   main.py              AgentOS instantiation, literal agent list, web lifespan
   config.yaml          chat quick-prompts per agent id
 db/                    Postgres helpers (url.py, session.py)
+evals/                 Eval suite (cases.py; run with `python -m evals`)
 tools/                 IBM i tool YAMLs + generated toolsets.json + schema
 docs/                  Agent-authoring lifecycle prompts + reference docs
 .agents/skills/        Coding-agent workflows (/setup-platform, /create-agent, /extend-agent,
@@ -50,6 +51,7 @@ docs/                  Agent-authoring lifecycle prompts + reference docs
 scripts/               format / validate / generate_requirements / venv_setup / build_image
 parse_mcp_tools.py     tools/*.yaml -> tools/toolsets.json
 compose.yaml           Local stack (db + mcp + api)
+compose.prod.yaml      Production override (no bind mount/reload, loopback db + mcp)
 ```
 
 ## Working conventions
@@ -95,6 +97,40 @@ Reused across SQL agents (see `agents/utils/common.py::DATA_HANDLING`):
   column-referencing SQL — Tech Refresh level changes what's available
 - Call `validate_query` before `execute_sql`; confirm before any destructive op
 
+### Evals
+
+The suite lives in [`evals/`](evals/) and runs on agno's eval runner: each `Case` in
+`evals/cases.py` probes a live agent and is judged by `AgentAsJudgeEval` (`criteria`)
+and/or `ReliabilityEval` (`expected_tool_calls`). Cases run the agents **in-process on
+the host** against the live stack — they need `agentos-db` and `ibmi-mcp-server` up, a
+model key in `.env`, and real IBM i credentials; every case runs real (read-only) SQL
+against the configured system, so run the suite deliberately, not on a schedule. The
+runner defaults `MCP_URL` to `http://localhost:3010/mcp` for host-side runs.
+
+```bash
+source .venv/bin/activate
+python -m evals --tag smoke     # fast core: schema discovery, status, injection, PTF
+python -m evals --tag release   # all cases
+python -m evals --name <case>   # one case
+```
+
+Keep new cases read-only by construction (the shipped ones are), and tag them `smoke`
+(fast core) or `release` (everything). Results log to Postgres via `eval_db` and are
+visible at os.agno.com.
+
+### Running in production
+
+```bash
+docker compose -f compose.yaml -f compose.prod.yaml up -d --build
+```
+
+[`compose.prod.yaml`](compose.prod.yaml) drops the dev bind mount and hot reload,
+turns off debug logging, and rebinds Postgres **and** the ibmi-mcp-server to loopback
+so neither is internet-reachable. This template ships no auth layer (see the deliberate
+cuts below), so network posture is the security boundary: keep port 8000 private (LAN,
+VPN, or an authenticating reverse proxy), and set a strong `DB_PASS` in `.env`. Needs
+Docker Compose v2.24.4+ for the `!reset`/`!override` merge tags.
+
 ### Validation gate
 
 Before committing, all of these must be green:
@@ -111,7 +147,8 @@ docker compose up -d && \
 - **No `app/registry.py` / `app/factory.py`** — explicit imports in `app/main.py` only
 - **No CLI** — drive agents via the AgentOS API / control plane, not a host REPL
 - **No auth layer** — single-tenant; the MCP server uses one shared IBM i identity from `.env`
-- **No knowledge / learning / evals scaffolding** — keep the template minimal; add what you need
+- **No knowledge / learning scaffolding** — keep the template minimal; add what you need
+  (the eval suite in `evals/` is the one exception — kept small and read-only)
 - **No team-member deep-copy variants** — agents are single-form
 
 ## Working with coding agents

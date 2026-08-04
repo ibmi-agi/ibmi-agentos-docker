@@ -132,3 +132,8 @@ Cap at **5 iterations**. Stop when all probes pass; when the same probe fails 3 
 - Out-of-scope asks surfaced by mining — each an [`extend-agent`](../extend-agent/SKILL.md) candidate.
 - `git diff agents/<slug_underscore>_agent.py` (one short block).
 - Suggested commit message (`fix(<slug>): <one-line summary>`) and next step.
+
+If a probe caught a real issue, don't let it evaporate — offer to graduate it into a
+`Case` in [`evals/cases.py`](../../../evals/cases.py) (keep it read-only, tag it
+`release`), so the regression you just fixed stays fixed. Probes mined from real
+sessions are the strongest candidates: that ask has already happened once.

@@ -33,8 +33,8 @@ This is a **recurring sweep** — on a clean repo it ends with "no diffs"; on a 
 - Code changes beyond imports (instructions, tools, model swaps).
 - SQL changes inside [`tools/*.yaml`](../../../tools/) — tool SQL runs against someone's live system; propose, don't apply.
 - Dependency edits in [`pyproject.toml`](../../../pyproject.toml).
-- Anything in [`db/`](../../../db/), [`compose.yaml`](../../../compose.yaml), or [`Dockerfile`](../../../Dockerfile).
-- Failing live agents — recommend [`improve-agent`](../improve-agent/SKILL.md) or [`extend-agent`](../extend-agent/SKILL.md); don't fix here.
+- Anything in [`db/`](../../../db/), [`compose.yaml`](../../../compose.yaml), [`compose.prod.yaml`](../../../compose.prod.yaml), or [`Dockerfile`](../../../Dockerfile).
+- Failing live agents or failing eval cases — recommend [`improve-agent`](../improve-agent/SKILL.md) or [`extend-agent`](../extend-agent/SKILL.md); don't fix here.
 
 ## 0. Preconditions
 
@@ -48,8 +48,8 @@ Restate the surface area in 4-5 lines so the user can redirect before you read e
 - Top-level docs: [`README.md`](../../../README.md), [`AGENTS.md`](../../../AGENTS.md), [`.env.example`](../../../.env.example).
 - Field manuals: [`docs/*.md`](../../../docs/).
 - Coding-agent skills: [`.agents/skills/*/SKILL.md`](../../../.agents/skills/) (frontmatter `name` matches the folder; `description` is trigger-rich; relative links resolve from two levels deep, i.e. `../../../`).
-- Code: [`app/`](../../../app/), [`agents/`](../../../agents/), [`db/`](../../../db/), [`scripts/`](../../../scripts/), [`parse_mcp_tools.py`](../../../parse_mcp_tools.py).
-- Configs: [`compose.yaml`](../../../compose.yaml), [`Dockerfile`](../../../Dockerfile), [`pyproject.toml`](../../../pyproject.toml), [`tools/`](../../../tools/) YAMLs + schema.
+- Code: [`app/`](../../../app/), [`agents/`](../../../agents/), [`db/`](../../../db/), [`evals/`](../../../evals/), [`scripts/`](../../../scripts/), [`parse_mcp_tools.py`](../../../parse_mcp_tools.py).
+- Configs: [`compose.yaml`](../../../compose.yaml), [`compose.prod.yaml`](../../../compose.prod.yaml), [`Dockerfile`](../../../Dockerfile), [`pyproject.toml`](../../../pyproject.toml), [`tools/`](../../../tools/) YAMLs + schema.
 
 Skip: `.venv/`, `*_cache/`, `.git/`, `*.egg-info/`, anything generated (read `tools/toolsets.json` only to verify it's fresh).
 
@@ -88,6 +88,7 @@ The bulk of the work. Diff each pair; auto-fix per the rules at the top.
 | Skill frontmatter + links resolve | `.agents/skills/*/SKILL.md` ↔ folder name + `../../../` targets | name≠folder, broken path, dead cross-skill link |
 | `.claude/skills` symlink resolves | `.claude/skills` → `../.agents/skills` | Symlink missing or dangling |
 | `.mcp.json` servers and the docs that reference them agree | `.mcp.json` ↔ docs + skills | URL changed, server renamed |
+| Eval cases reference real agents + tools | [`evals/cases.py`](../../../evals/cases.py) ↔ `agents/` + `tools/toolsets.json` | Agent renamed or tool removed from a toolset |
 | "Don't add" cuts still hold | `AGENTS.md` deliberate-cuts list ↔ codebase | A registry/CLI/auth layer crept in undocumented |
 
 ## 4. Live stack smoke
