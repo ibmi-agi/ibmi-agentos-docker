@@ -17,11 +17,11 @@ This is a **single-pass** loop — one pass usually takes 15-30 minutes. Re-run 
 
 ## 0. Preconditions
 
-- Stack up: `curl -sSf http://localhost:8000/health` and `curl -sSf http://localhost:3010/healthz` both return 200. If not, ask the user to `docker compose up -d --build` first.
+- Stack up: `curl -sSf http://localhost:8000/health` and `curl -sSf http://localhost:3010/healthz` both return 200. If not, ask the user to `podman compose up -d --build` first.
 - Live container is bound to *this* checkout:
 
   ```bash
-  docker inspect agentos-api --format '{{range .Mounts}}{{.Source}}{{"\n"}}{{end}}' | grep -F "$(pwd)"
+  podman inspect agentos-api --format '{{range .Mounts}}{{.Source}}{{"\n"}}{{end}}' | grep -F "$(pwd)"
   ```
 
   Empty result = bound to a different repo path; fix before editing anything.
@@ -82,10 +82,10 @@ jq -r '.content // .' < /tmp/probe-<n>.json
 Read the tool calls (`AGNO_DEBUG=True` in dev compose):
 
 ```bash
-docker logs agentos-api --since 30s 2>&1 | grep -E "Running: \w+\(" | head -40
+podman logs agentos-api --since 30s 2>&1 | grep -E "Running: \w+\(" | head -40
 ```
 
-Logs are container-global — with parallel probes, filter by `user_id` instead. SQL-side failures surface in `docker logs ibmi-mcp-server`. Save each response so you can compare before vs. after.
+Logs are container-global — with parallel probes, filter by `user_id` instead. SQL-side failures surface in `podman logs ibmi-mcp-server`. Save each response so you can compare before vs. after.
 
 ## 4. Judge each probe
 
@@ -114,9 +114,9 @@ Keep edits short — more than ~5 new instruction lines in one pass means you're
 ## 6. Restart, re-probe failing cases
 
 ```bash
-docker compose restart agentos-api
+podman compose restart agentos-api
 until curl -sSf http://localhost:8000/health > /dev/null; do sleep 0.5; done
-docker exec agentos-api grep -c "<unique substring from your edit>" /app/agents/<slug_underscore>_agent.py
+podman exec agentos-api grep -c "<unique substring from your edit>" /app/agents/<slug_underscore>_agent.py
 ```
 
 `0` = the edit didn't reach the container (bind-mount mismatch — Step 0 catches this earlier). Re-run **only the probes that failed**, plus a spot-check on 1-2 previously-passing probes to catch regressions.

@@ -18,7 +18,7 @@ Agents here get their IBM i tools from the **`ibmi-mcp-server`** container: tool
 - `.env` has a model key (`ANTHROPIC_API_KEY` by default) and `DB2i_HOST` / `DB2i_USER` / `DB2i_PASS`.
 - If Phase 1 tool work is likely: `ibmi sql "VALUES CURRENT_DATE"` returns today's date ([`docs/ibmi-cli.md`](../../../docs/ibmi-cli.md) covers setup).
 
-If the stack isn't up, ask the user to run `docker compose up -d --build` and wait. Don't proceed against a broken stack.
+If the stack isn't up, ask the user to run `podman compose up -d --build` and wait. Don't proceed against a broken stack.
 
 ## 1. Find the agent worth building
 
@@ -135,10 +135,10 @@ Add the agent to [`app/config.yaml`](../../../app/config.yaml) under its `id`, f
 Uvicorn hot-reloads edits inside existing modules, but **registering a new agent module requires a restart**:
 
 ```bash
-docker compose restart agentos-api
+podman compose restart agentos-api
 ```
 
-New pip deps instead? Add them to [`pyproject.toml`](../../../pyproject.toml), then `./scripts/generate_requirements.sh && docker compose up -d --build`.
+New pip deps instead? Add them to [`pyproject.toml`](../../../pyproject.toml), then `./scripts/generate_requirements.sh && podman compose up -d --build`.
 
 Verify the agent registered before smoke-testing:
 
@@ -165,14 +165,14 @@ jq -r '.content // .' < /tmp/agent-out.json
 Pass = `HTTP 200` and a non-empty `.content`. Check which tools fired (`AGNO_DEBUG=True` is set for dev in compose):
 
 ```bash
-docker logs agentos-api --since 30s 2>&1 | grep -E "Running: \w+\(" | head -40
+podman logs agentos-api --since 30s 2>&1 | grep -E "Running: \w+\(" | head -40
 ```
 
 ## 8. If the smoke test fails
 
-- **HTTP 404** — not registered or not restarted. Re-check Steps 4 and 6. If both look right, `docker inspect agentos-api --format '{{ range .Mounts }}{{ .Source }} → {{ .Destination }}{{ "\n" }}{{ end }}'` to confirm `/app` is bound to *this* repo's path.
-- **HTTP 5xx** — `docker logs agentos-api --tail 50` for the traceback. Most failures are import errors, an unknown toolset name, or a typo in `tools=`.
-- **MCP tool errors** — check `docker logs ibmi-mcp-server --tail 50`: bad IBM i credentials, SQL errors against the live system, or a YAML that didn't reload.
+- **HTTP 404** — not registered or not restarted. Re-check Steps 4 and 6. If both look right, `podman inspect agentos-api --format '{{ range .Mounts }}{{ .Source }} → {{ .Destination }}{{ "\n" }}{{ end }}'` to confirm `/app` is bound to *this* repo's path.
+- **HTTP 5xx** — `podman logs agentos-api --tail 50` for the traceback. Most failures are import errors, an unknown toolset name, or a typo in `tools=`.
+- **MCP tool errors** — check `podman logs ibmi-mcp-server --tail 50`: bad IBM i credentials, SQL errors against the live system, or a YAML that didn't reload.
 - **Tool not firing when expected** — the instruction prompt isn't strong enough. Tighten, or run [`improve-agent`](../improve-agent/SKILL.md) once the agent is loaded.
 
 Iterate at most 2-3 times before stopping and asking the user.

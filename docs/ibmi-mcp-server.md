@@ -109,8 +109,8 @@ sed -i '' 's/MCP_SERVER_VERSION=v[0-9.]*/MCP_SERVER_VERSION=v0.6.0/' example.env
 sed -i '' 's/MCP_SERVER_VERSION=v[0-9.]*/MCP_SERVER_VERSION=v0.6.0/' .env
 
 # 3. Pull and recreate
-docker compose pull ibmi-mcp-server
-docker compose up -d ibmi-mcp-server
+podman compose pull ibmi-mcp-server
+podman compose up -d ibmi-mcp-server
 
 # 4. Smoke
 curl -sSf http://localhost:3010/healthz
@@ -130,14 +130,14 @@ curl -sS -X POST http://localhost:8000/agents/ibmi-sample/runs \
 Or run a single agent module directly inside the container:
 
 ```bash
-docker compose exec agentos-api python -m agents.sample_data_agent
+podman compose exec agentos-api python -m agents.sample_data_agent
 ```
 
 The MCP server is single-tenant: it connects with one shared IBM i identity (`DB2i_USER` / `DB2i_PASS` from `.env`) for every request — there is no per-user auth layer.
 
 ## Troubleshooting
 
-- **Healthcheck fails**: check `docker compose logs ibmi-mcp-server`. Often it's bad `DB2i_*` creds — the server starts but fails to open the SQL connection on the first request.
+- **Healthcheck fails**: check `podman compose logs ibmi-mcp-server`. Often it's bad `DB2i_*` creds — the server starts but fails to open the SQL connection on the first request.
 - **Tool not showing up**: regenerate `toolsets.json`, restart the MCP server, check the YAML validated cleanly.
 - **"Read-only validator rejected statement"**: the SQL has a write or a function the validator considers unsafe. Mark the tool `readOnly: false` and add a `destructiveHint`, then plumb it through `requires_confirmation_tools` in the agent.
 - **Slow queries**: `MCP_POOL_QUERY_TIMEOUT_MS` in `compose.yaml` controls the per-query timeout (default 120s).

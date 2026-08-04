@@ -39,7 +39,7 @@ This is a **recurring sweep** — on a clean repo it ends with "no diffs"; on a 
 
 ## 0. Preconditions
 
-- Live stack reachable: `curl -sSf http://localhost:8000/health` and `curl -sSf http://localhost:3010/healthz` return 200. If not, ask the user to `docker compose up -d --build` first — Step 4 needs a live stack.
+- Live stack reachable: `curl -sSf http://localhost:8000/health` and `curl -sSf http://localhost:3010/healthz` return 200. If not, ask the user to `podman compose up -d --build` first — Step 4 needs a live stack.
 - Recommend a feature branch so auto-fixes are easy to revert: `git checkout -b review/$(date +%Y%m%d)`.
 
 ## 1. Scope check
@@ -115,7 +115,7 @@ curl -sS -X POST http://localhost:8000/agents/<slug>/runs \
 jq -r '.content // .' < /tmp/review-<slug>.json | head -20
 ```
 
-Pass = HTTP 200, non-empty content, no errors in `docker logs agentos-api --since 30s`. Two expected non-failures: a probe that reaches a `requires_confirmation_tools` member (e.g. `execute_sql` on `ibmi-text2sql`) returns `"status": "PAUSED"` — correct HITL behavior; and `ibmi-sample` erroring because the SAMPLE schema isn't on the target system is an **environment finding**, not a code bug — report it as such.
+Pass = HTTP 200, non-empty content, no errors in `podman logs agentos-api --since 30s`. Two expected non-failures: a probe that reaches a `requires_confirmation_tools` member (e.g. `execute_sql` on `ibmi-text2sql`) returns `"status": "PAUSED"` — correct HITL behavior; and `ibmi-sample` erroring because the SAMPLE schema isn't on the target system is an **environment finding**, not a code bug — report it as such.
 
 Quality issues (plausible-but-wrong answer, wrong tool fired) are out of scope — note them and recommend [`improve-agent`](../improve-agent/SKILL.md) or [`extend-agent`](../extend-agent/SKILL.md).
 

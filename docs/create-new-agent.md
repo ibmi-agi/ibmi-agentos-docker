@@ -5,7 +5,7 @@
 
 You are creating a new IBM i agent in this AgentOS template. The template ships **six reference agents** (`agents/text2sql_agent.py`, `agents/performance_agent.py`, `agents/security_audit_agent.py`, `agents/library_list_security_agent.py`, `agents/ptf_agent.py`, `agents/sample_data_agent.py`). Use **`agents/performance_agent.py`** as the working model; your new agent should mirror its shape and only diverge where the new domain requires.
 
-The user already has the stack running on `http://localhost:8000` (`RUNTIME_ENV=dev`). Uvicorn hot-reloads on edits inside an existing module, but **registering a new agent module requires `docker compose restart agentos-api`** — see Step 6.
+The user already has the stack running on `http://localhost:8000` (`RUNTIME_ENV=dev`). Uvicorn hot-reloads on edits inside an existing module, but **registering a new agent module requires `podman compose restart agentos-api`** — see Step 6.
 
 Two phases, with explicit confirmation gates:
 
@@ -219,7 +219,7 @@ Before editing `app/main.py`, show the user the full registration plan in one ta
 | Instruction blocks | shared | GUARDRAILS, DATA_HANDLING, ERROR_HANDLING, AUDIT, WEB, USER_CONTEXT |
 | Files created | new | agents/security_audit_agent.py |
 | Files edited | edits | app/main.py (import + agents list), app/config.yaml (quick prompts) |
-| Restart needed | docker | docker compose restart agentos-api |
+| Restart needed | podman | podman compose restart agentos-api |
 ```
 
 Ask: **"Confirm registration plan or request changes?"** Wait for explicit OK.
@@ -259,7 +259,7 @@ chat:
 ### 2.6 Restart and smoke test
 
 ```bash
-docker compose restart agentos-api
+podman compose restart agentos-api
 until curl -sSf http://localhost:8000/healthz > /dev/null; do sleep 0.5; done
 curl -s http://localhost:8000/agents | jq '.[] | .id'
 ```
@@ -274,7 +274,7 @@ curl -sS -X POST http://localhost:8000/agents/ibmi-<slug>/runs \
 Or exercise the module directly inside the container:
 
 ```bash
-docker compose exec agentos-api python -m agents.<module>
+podman compose exec agentos-api python -m agents.<module>
 ```
 
 Check the response: did it use the right toolset(s) — including the newly built one(s)? Did it inspect schema → validate → present → confirm → execute? Did it surface tool errors gracefully?

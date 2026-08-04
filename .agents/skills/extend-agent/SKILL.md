@@ -13,11 +13,11 @@ This is the user-driven half of the iteration loop. The autonomous half lives in
 
 ## 0. Preconditions
 
-- Stack up: `curl -sSf http://localhost:8000/health` and `curl -sSf http://localhost:3010/healthz` both return 200. If not, ask the user to `docker compose up -d --build` first.
+- Stack up: `curl -sSf http://localhost:8000/health` and `curl -sSf http://localhost:3010/healthz` both return 200. If not, ask the user to `podman compose up -d --build` first.
 - Live container is bound to *this* checkout — otherwise restarts won't pick up your edits:
 
   ```bash
-  docker inspect agentos-api --format '{{range .Mounts}}{{.Source}}{{"\n"}}{{end}}' | grep -F "$(pwd)"
+  podman inspect agentos-api --format '{{range .Mounts}}{{.Source}}{{"\n"}}{{end}}' | grep -F "$(pwd)"
   ```
 
   Empty result = the container's `/app` is bound to a different repo path. Either `cd` there or restart the stack from this directory.
@@ -66,16 +66,16 @@ Keep edits surgical — one change per iteration so each can be smoke-tested ind
 ## 5. Restart
 
 ```bash
-docker compose restart agentos-api
+podman compose restart agentos-api
 ```
 
-New pip deps: `./scripts/generate_requirements.sh && docker compose up -d --build` instead. Tool YAML changes alone don't need a restart — the MCP server auto-reloads them — but the restart is still the deterministic option when `toolsets.json` changed.
+New pip deps: `./scripts/generate_requirements.sh && podman compose up -d --build` instead. Tool YAML changes alone don't need a restart — the MCP server auto-reloads them — but the restart is still the deterministic option when `toolsets.json` changed.
 
 Poll `/health` until the API is back, then confirm the edit reached the container:
 
 ```bash
 until curl -sSf http://localhost:8000/health > /dev/null; do sleep 0.5; done
-docker exec agentos-api grep -c "<unique substring from your edit>" /app/agents/<slug_underscore>_agent.py
+podman exec agentos-api grep -c "<unique substring from your edit>" /app/agents/<slug_underscore>_agent.py
 ```
 
 `0` means the file in the container hasn't changed — almost always the bind-mount mismatch Step 0 catches.
@@ -98,7 +98,7 @@ jq -r '.content // .' < /tmp/extend-out.json
 Read tool calls from the logs (`AGNO_DEBUG=True` in dev compose):
 
 ```bash
-docker logs agentos-api --since 30s 2>&1 | grep -E "Running: \w+\(" | head -40
+podman logs agentos-api --since 30s 2>&1 | grep -E "Running: \w+\(" | head -40
 ```
 
 A probe that reaches a `requires_confirmation_tools` member comes back `"status": "PAUSED"` with empty content — that's correct HITL behavior, not a failure; judge whether pausing was right.

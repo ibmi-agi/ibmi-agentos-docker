@@ -19,7 +19,7 @@ The `ibmi` CLI is the only database utility you use here. Background and command
 - Stack healthy:
 
   ```bash
-  docker compose up -d --build
+  podman compose up -d --build
   until curl -sSf http://localhost:8000/healthz > /dev/null; do sleep 0.5; done
   curl -sSf http://localhost:3010/healthz
   ```
@@ -172,7 +172,7 @@ curl -s http://localhost:3010/mcp/tools | jq '.tools[].name' | grep list_employe
 If it isn't there, check the MCP server logs:
 
 ```bash
-docker compose logs ibmi-mcp-server --tail 50
+podman compose logs ibmi-mcp-server --tail 50
 ```
 
 Then drive the tool from the agent — paste an example prompt that should route to it:
@@ -191,7 +191,7 @@ jq -r '.content // .' < /tmp/tool-out.json
 Watch the container logs to confirm the new tool fired:
 
 ```bash
-docker logs agentos-api --since 30s 2>&1 | grep -E "Running: \w+\(" | head -40
+podman logs agentos-api --since 30s 2>&1 | grep -E "Running: \w+\(" | head -40
 ```
 
 If the agent doesn't pick the new tool, the tool's `description:` text isn't routing the model well — sharpen the *when to use it* sentence. The agent reads `description`, not `name`.

@@ -2,18 +2,18 @@
 
 ############################################################################
 #
-#    Agno Docker Image Builder
+#    Agno Image Builder (Podman)
 #
 #    Usage: ./scripts/build_image.sh [--push]
 #
 #    Options:
-#      --push    Build for linux/amd64,linux/arm64 and push to registry
+#      --push    Build linux/amd64 + linux/arm64 into a manifest and push it
 #
 #    Without --push, builds for the native platform only (no QEMU needed).
 #
 #    Prerequisites:
-#      - Docker Buildx installed
-#      - Run 'docker buildx create --use' first (for --push)
+#      - Podman installed (the podman machine ships QEMU for cross-arch)
+#      - For --push: a registry-qualified IMAGE_NAME and `podman login`
 #
 ############################################################################
 
@@ -21,7 +21,7 @@ set -e
 
 CURR_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OS_ROOT="$(dirname "${CURR_DIR}")"
-DOCKER_FILE="Dockerfile"
+CONTAINER_FILE="Dockerfile"
 IMAGE_NAME="ibmi-agentos-platform"
 IMAGE_TAG="latest"
 
@@ -39,20 +39,22 @@ for arg in "$@"; do
 done
 
 echo ""
-echo -e "    ${ORANGE}▸${NC} ${BOLD}Building Docker image${NC}"
+echo -e "    ${ORANGE}▸${NC} ${BOLD}Building image with Podman${NC}"
 echo -e "    ${DIM}Image: ${IMAGE_NAME}:${IMAGE_TAG}${NC}"
 
 if [ "$PUSH" = true ]; then
     PLATFORMS="linux/amd64,linux/arm64"
     echo -e "    ${DIM}Platforms: ${PLATFORMS}${NC}"
     echo ""
-    echo -e "    ${DIM}> docker buildx build --platform=${PLATFORMS} -t ${IMAGE_NAME}:${IMAGE_TAG} -f ${DOCKER_FILE} ${OS_ROOT} --push${NC}"
-    docker buildx build --platform=${PLATFORMS} -t ${IMAGE_NAME}:${IMAGE_TAG} -f ${DOCKER_FILE} ${OS_ROOT} --push
+    echo -e "    ${DIM}> podman build --platform=${PLATFORMS} --manifest ${IMAGE_NAME}:${IMAGE_TAG} -f ${CONTAINER_FILE} ${OS_ROOT}${NC}"
+    podman build --platform=${PLATFORMS} --manifest ${IMAGE_NAME}:${IMAGE_TAG} -f ${CONTAINER_FILE} ${OS_ROOT}
+    echo -e "    ${DIM}> podman manifest push --all ${IMAGE_NAME}:${IMAGE_TAG}${NC}"
+    podman manifest push --all ${IMAGE_NAME}:${IMAGE_TAG}
 else
     echo -e "    ${DIM}Platform: native (use --push for multi-platform)${NC}"
     echo ""
-    echo -e "    ${DIM}> docker buildx build -t ${IMAGE_NAME}:${IMAGE_TAG} -f ${DOCKER_FILE} ${OS_ROOT} --load${NC}"
-    docker buildx build -t ${IMAGE_NAME}:${IMAGE_TAG} -f ${DOCKER_FILE} ${OS_ROOT} --load
+    echo -e "    ${DIM}> podman build -t ${IMAGE_NAME}:${IMAGE_TAG} -f ${CONTAINER_FILE} ${OS_ROOT}${NC}"
+    podman build -t ${IMAGE_NAME}:${IMAGE_TAG} -f ${CONTAINER_FILE} ${OS_ROOT}
 fi
 
 echo ""

@@ -3,8 +3,8 @@
 # =============================================================================
 #
 # Usage:
-#   docker compose up -d      # start the stack
-#   docker compose down       # stop everything
+#   podman compose up -d      # start the stack
+#   podman compose down       # stop everything
 #
 # Services:
 #   agentos-db       Postgres + pgvector (sessions, memory, traces, knowledge)

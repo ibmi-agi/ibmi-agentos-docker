@@ -5,7 +5,7 @@ working in this repo. `CLAUDE.md` is a symlink to this file — edit one, both u
 
 ## What this repo is
 
-A starter for building IBM i agents on **Agno AgentOS**, deployed with Docker:
+A starter for building IBM i agents on **Agno AgentOS**, deployed with Podman:
 
 - **Agents** are Python modules under `agents/`, registered explicitly in `app/main.py` —
   no registry, no autoloader, just a literal `agents=[...]` list. Six agents ship:
@@ -24,7 +24,7 @@ A starter for building IBM i agents on **Agno AgentOS**, deployed with Docker:
   default; `PARALLEL_API_KEY` raises the rate ceiling.
 - **Storage** is Postgres + pgvector via `agno.db.postgres.PostgresDb` — sessions,
   memory, traces in one place.
-- **The runtime stack** is `docker compose up -d` → `agentos-db`, `ibmi-mcp-server`,
+- **The runtime stack** is `podman compose up -d` → `agentos-db`, `ibmi-mcp-server`,
   `agentos-api`. Local dev hot-reloads code under `agents/`, `app/`, `db/`.
 
 ## Repo layout
@@ -128,15 +128,16 @@ in scope, run [`/eval-and-improve`](.agents/skills/eval-and-improve/SKILL.md).
 ### Running in production
 
 ```bash
-docker compose -f compose.yaml -f compose.prod.yaml up -d --build
+podman compose -f compose.yaml -f compose.prod.yaml up -d --build
 ```
 
 [`compose.prod.yaml`](compose.prod.yaml) drops the dev bind mount and hot reload,
 turns off debug logging, and rebinds Postgres **and** the ibmi-mcp-server to loopback
 so neither is internet-reachable. This template ships no auth layer (see the deliberate
 cuts below), so network posture is the security boundary: keep port 8000 private (LAN,
-VPN, or an authenticating reverse proxy), and set a strong `DB_PASS` in `.env`. Needs
-Docker Compose v2.24.4+ for the `!reset`/`!override` merge tags.
+VPN, or an authenticating reverse proxy), and set a strong `DB_PASS` in `.env`. The
+`!reset`/`!override` merge tags need podman-compose 1.5+ (or, if `podman compose`
+delegates to docker-compose, v2.24.4+).
 
 ### Validation gate
 
@@ -145,7 +146,7 @@ Before committing, all of these must be green:
 ```bash
 bash scripts/format.sh                      # ruff format
 bash scripts/validate.sh                    # ruff check + mypy + tool YAML schema validation
-docker compose up -d && \
+podman compose up -d && \
   curl -sSf http://localhost:8000/health    # the stack actually starts
 ```
 

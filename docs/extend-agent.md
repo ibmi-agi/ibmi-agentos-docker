@@ -153,8 +153,8 @@ curl -s http://localhost:3010/mcp/tools | jq '.tools[].name' | grep <new-tool-na
 If the tool doesn't appear:
 
 ```bash
-docker compose logs ibmi-mcp-server --tail 50    # check for reload errors
-docker compose restart ibmi-mcp-server           # nuclear option
+podman compose logs ibmi-mcp-server --tail 50    # check for reload errors
+podman compose restart ibmi-mcp-server           # nuclear option
 ```
 
 ## 8. Wire into the agent
@@ -187,7 +187,7 @@ Then update the agent's inline `INSTRUCTIONS` f-string in `agents/<slug>.py` —
 ## 9. Restart and smoke test
 
 ```bash
-docker compose restart agentos-api
+podman compose restart agentos-api
 sleep 2
 curl -sS -X POST http://localhost:8000/agents/ibmi-<slug>/runs \
   -F message='<question only the new toolset can answer>'

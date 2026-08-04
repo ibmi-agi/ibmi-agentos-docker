@@ -1,6 +1,6 @@
 # IBM i AgentOS — Docker Template
 
-Run a multi-agent system for IBM i on Agno AgentOS, with Docker.
+Run a multi-agent system for IBM i on Agno AgentOS, with Podman.
 
 [What is AgentOS?](https://docs.agno.com/agent-os/introduction) · [Agno Docs](https://docs.agno.com) · [Discord](https://agno.com/discord) · [IBM i MCP Server](https://github.com/IBM/ibmi-mcp-server)
 
@@ -27,7 +27,7 @@ endpoint, routed through a synthesizing sub-agent so the main agent's context st
 
 ### Prerequisites
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop)
+- [Podman](https://podman.io) + `podman-compose` — e.g. `brew install podman podman-compose`, then `podman machine init && podman machine start` (macOS/Windows; no machine step on Linux)
 - [Anthropic API key](https://console.anthropic.com/settings/keys) (or another provider's key)
 - An IBM i user profile with the [Mapepire](https://ibm-d95bab6e.mintlify.app/quickstart) database server installed on the system
 
@@ -61,7 +61,7 @@ DB2i_PASS=your-ibmi-password
 
 ### 3. Start locally
 ```sh
-docker compose up -d --build
+podman compose up -d --build
 ```
 
 - **API**: http://localhost:8000
@@ -264,7 +264,7 @@ answer, so raw search snippets never enter the main agent's context window.
 ├── evals/                               # Eval suite (python -m evals)
 ├── scripts/                             # Helper scripts (format, validate, build, ...)
 ├── parse_mcp_tools.py                   # tools/*.yaml -> tools/toolsets.json
-├── compose.yaml                         # Docker Compose stack
+├── compose.yaml                         # Compose stack (podman compose)
 ├── compose.prod.yaml                    # Production override
 └── pyproject.toml                       # Dependencies
 ```
@@ -310,7 +310,7 @@ agent_os = AgentOS(
 )
 ```
 
-3. Restart: `docker compose restart agentos-api`
+3. Restart: `podman compose restart agentos-api`
 
 ### Add tools to an agent
 
@@ -332,7 +332,7 @@ Agno also ships 100+ tool integrations — see the [full list](https://docs.agno
 
 1. Edit `pyproject.toml`
 2. Regenerate requirements: `./scripts/generate_requirements.sh`
-3. Rebuild: `docker compose up -d --build`
+3. Rebuild: `podman compose up -d --build`
 
 ### Use a different model provider
 
@@ -345,13 +345,13 @@ AGENT_MODEL=openai:gpt-4o
 # or google:gemini-2.0-flash, groq:llama-3.3-70b-versatile, ollama:llama3.3, ...
 # Full list: https://docs.agno.com/models/providers/model-index
 ```
-3. Restart: `docker compose restart agentos-api`
+3. Restart: `podman compose restart agentos-api`
 
 ---
 
 ## Local Development
 
-For development without the full Docker stack:
+For development without the full container stack:
 ```sh
 # Install uv
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -361,7 +361,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 source .venv/bin/activate
 
 # Start PostgreSQL + MCP server (required)
-docker compose up -d agentos-db ibmi-mcp-server
+podman compose up -d agentos-db ibmi-mcp-server
 
 # Host-side runs reach the MCP server via its published port
 export MCP_URL=http://localhost:3010/mcp
@@ -403,13 +403,14 @@ This parses every YAML in `tools/`, validates against the MCP server schema, and
 ## Run in production
 
 ```sh
-docker compose -f compose.yaml -f compose.prod.yaml up -d --build
+podman compose -f compose.yaml -f compose.prod.yaml up -d --build
 ```
 
 The `compose.prod.yaml` override drops the dev bind mount and hot reload (the container
 runs the code baked into the image), turns off debug logging, and rebinds Postgres and
-the `ibmi-mcp-server` to loopback so neither is reachable from off-host. Requires Docker
-Compose v2.24.4+.
+the `ibmi-mcp-server` to loopback so neither is reachable from off-host. The
+`!reset`/`!override` merge tags it uses need podman-compose 1.5+ (or, if
+`podman compose` delegates to docker-compose, v2.24.4+).
 
 **This template ships no auth layer** — it is single-tenant by design, so network
 posture is the security boundary. Keep port 8000 private (LAN, VPN, or an
@@ -419,8 +420,8 @@ strong `DB_PASS` in `.env` — the dev default is `ai`/`ai`.
 After a code change, rebuild and restart:
 
 ```sh
-docker compose -f compose.yaml -f compose.prod.yaml up -d --build
-docker compose -f compose.yaml -f compose.prod.yaml logs -f agentos-api
+podman compose -f compose.yaml -f compose.prod.yaml up -d --build
+podman compose -f compose.yaml -f compose.prod.yaml logs -f agentos-api
 ```
 
 ---
