@@ -7,6 +7,7 @@
       "Bash(./scripts/generate_requirements.sh:*)",
       "Bash(source .venv/bin/activate:*)",
       "Bash(uv run python parse_mcp_tools.py:*)",
+      "Bash(uv run python .agents/skills/create-agent/scripts/validate_tools.py:*)",
       "Bash(python -m evals:*)",
       "Bash(podman compose up:*)",
       "Bash(podman compose restart:*)",

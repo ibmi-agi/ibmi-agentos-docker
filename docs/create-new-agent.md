@@ -9,10 +9,10 @@ The user already has the stack running on `http://localhost:8000` (`RUNTIME_ENV=
 
 Two phases, with explicit confirmation gates:
 
-- **Phase 1 — Tools.** Decide which toolsets the agent needs. If any are missing, build them (explore with `ibmi` → draft SQL → write YAML → validate) before scaffolding the agent. Full loop: [`docs/write-new-tool.md`](write-new-tool.md).
+- **Phase 1 — Tools.** Decide which toolsets the agent needs. If any are missing, build them (explore with `ibmi` → draft SQL → write YAML → validate) before scaffolding the agent. Full loop: [`write-new-tool.md`](../.agents/skills/create-agent/references/write-new-tool.md).
 - **Phase 2 — Agent.** Scaffold the agent module, compose its inline instructions, register it, smoke-test.
 
-Schema/conventions for tool YAMLs live in [`docs/tool-design-reference.md`](tool-design-reference.md). The `ibmi` CLI is the only database utility used in this loop — see [`docs/ibmi-cli.md`](ibmi-cli.md) for setup.
+Schema/conventions for tool YAMLs live in [`tool-design-reference.md`](../.agents/skills/create-agent/references/tool-design-reference.md). The `ibmi` CLI is the only database utility used in this loop — see [`docs/ibmi-cli.md`](ibmi-cli.md) for setup.
 
 ## 0. Preconditions
 
@@ -79,18 +79,18 @@ Get the user's explicit OK on this plan before doing any tool work. **Do not** p
 
 ### 1.3 Build any missing tools
 
-For each missing toolset, run [`docs/write-new-tool.md`](write-new-tool.md) **inline, in this same session, not as a handoff**. The short version:
+For each missing toolset, run [`write-new-tool.md`](../.agents/skills/create-agent/references/write-new-tool.md) **inline, in this same session, not as a handoff**. The short version:
 
 1. **Explore** with `ibmi schemas`, `ibmi tables <schema>`, `ibmi columns <schema> <table>`, `ibmi describe <SCHEMA.OBJECT>` to capture exact column names and types.
 2. **Draft & validate SQL** with `ibmi sql "<stmt>"` and `ibmi validate "<stmt>"` — loop on errors.
 3. **Preview the tool plan** with a markdown table; wait for explicit user confirmation.
-4. **Author the YAML** against [`docs/tool-design-reference.md`](tool-design-reference.md) (§2–§6).
-5. **Validate & regenerate** with `uv run python parse_mcp_tools.py` — fix using §9/§10 of the reference doc on failure.
+4. **Author the YAML** against [`tool-design-reference.md`](../.agents/skills/create-agent/references/tool-design-reference.md) (§2–§6).
+5. **Validate & regenerate** with `uv run python .agents/skills/create-agent/scripts/validate_tools.py tools/<file>.yaml` (live-schema validation: download → validate → discard) and `uv run python parse_mcp_tools.py` — fix using §9/§10 of the reference doc on failure.
 6. **Verify** the MCP server picked it up: `curl -s http://localhost:3010/mcp/tools | jq '.tools[].name' | grep <new>`.
 
 Repeat for each missing toolset. Then return here for Phase 2.
 
-> Phase 1 design rules (from [`docs/tool-design-reference.md`](tool-design-reference.md) §11):
+> Phase 1 design rules (from [`tool-design-reference.md`](../.agents/skills/create-agent/references/tool-design-reference.md) §11):
 > - Narrow scope beats kitchen sink. Don't build a `run_anything` tool.
 > - Parameterize what varies. Use `enum` / `min` / `max` where applicable.
 > - Default to read-only. Make `readOnly: false` a deliberate decision.

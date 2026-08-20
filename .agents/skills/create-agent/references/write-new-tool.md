@@ -1,16 +1,16 @@
 # Write a New Tool
 
-> Claude Code prompt. Open Claude Code in this repo and paste:
-> `Run docs/write-new-tool.md`
+> Field manual for the tool-authoring loop, used by the `create-agent` and `extend-agent` skills. Runnable standalone — open Claude Code in this repo and paste:
+> `Run .agents/skills/create-agent/references/write-new-tool.md`
 
 You are authoring a new SQL tool for this template. The end product is a `tools/*.yaml` entry that the `ibmi-mcp-server` publishes to the IBM i agents. The loop is: **explore with `ibmi` → draft SQL → write YAML → validate → verify live → commit**.
 
-The `ibmi` CLI is the only database utility you use here. Background and command surface: [`docs/ibmi-cli.md`](ibmi-cli.md). YAML schema reference: [`docs/tool-design-reference.md`](tool-design-reference.md).
+The `ibmi` CLI is the only database utility you use here. Background and command surface: [`docs/ibmi-cli.md`](../../../../docs/ibmi-cli.md). YAML schema reference: [`tool-design-reference.md`](tool-design-reference.md).
 
 ## 0. Preconditions
 
 - `.env` populated. `DB2i_HOST` / `DB2i_USER` / `DB2i_PASS` set to a reachable IBM i with the `SAMPLE` library available.
-- `ibmi` installed on the host (`ibmi --version`) — see [`docs/ibmi-cli.md`](ibmi-cli.md) to install it. Sanity check returns today's date:
+- `ibmi` installed on the host (`ibmi --version`) — see [`docs/ibmi-cli.md`](../../../../docs/ibmi-cli.md) to install it. Sanity check returns today's date:
 
   ```bash
   ibmi sql "SELECT CURRENT_DATE FROM SYSIBM.SYSDUMMY1"
@@ -68,7 +68,7 @@ FETCH FIRST 50 ROWS ONLY
 "
 ```
 
-IBM i SQL conventions apply (see [`docs/tool-design-reference.md`](tool-design-reference.md) §7):
+IBM i SQL conventions apply (see [`tool-design-reference.md`](tool-design-reference.md) §7):
 
 - `FETCH FIRST N ROWS ONLY` — never `LIMIT`.
 - `UPPER(col) LIKE UPPER(:pattern)` for case-insensitive search on EBCDIC strings.
@@ -93,7 +93,7 @@ FETCH FIRST :row_limit ROWS ONLY
 
 Either extend the existing `tools/employee-info.yaml` (preferred when the new tool belongs alongside the SAMPLE tools) or create a new `tools/<name>.yaml` (one toolset per file is the convention).
 
-Open [`docs/tool-design-reference.md`](tool-design-reference.md) §2–§6 before authoring. Required shape:
+Open [`tool-design-reference.md`](tool-design-reference.md) §2–§6 before authoring. Required shape:
 
 ```yaml
 tools:
@@ -147,11 +147,14 @@ Default to `security.readOnly: true`. Any tool that modifies state must set `rea
 
 ## 4. Validate
 
+Two steps — schema-validate the YAML, then regenerate the toolset index:
+
 ```bash
+uv run python .agents/skills/create-agent/scripts/validate_tools.py tools/<file>.yaml
 uv run python parse_mcp_tools.py
 ```
 
-This validates every `tools/*.yaml` against `tools/sql-tools-config.schema.json` and regenerates `tools/toolsets.json`. **A non-zero exit code means the YAML is broken** — fix and re-run. Read [`docs/tool-design-reference.md`](tool-design-reference.md) §9 (common mistakes) and §10 (validation-error → fix map) before guessing.
+The first command downloads the authoritative schema fresh from the [ibmi-mcp-server repo](https://github.com/IBM/ibmi-mcp-server), validates your YAML against it in memory, and discards it — the schema is deliberately not stored in this repo, so it can never go stale. The second regenerates `tools/toolsets.json`. **A non-zero exit code means the YAML is broken** — fix and re-run. Read [`tool-design-reference.md`](tool-design-reference.md) §9 (common mistakes) and §10 (validation-error → fix map) before guessing.
 
 The umbrella check (ruff + mypy + schema validation in one shot):
 

@@ -51,11 +51,14 @@ app/
   config.yaml          chat quick-prompts per agent id
 db/                    Postgres helpers (url.py, session.py)
 evals/                 Eval suite (cases.py; run with `python -m evals`)
-tools/                 IBM i tool YAMLs + generated toolsets.json + schema
+tools/                 IBM i tool YAMLs + generated toolsets.json (schema is validated
+                       live from the ibmi-mcp-server repo — never stored here)
 docs/                  Agent-authoring lifecycle prompts + reference docs
 .agents/skills/        Coding-agent workflows (/setup-platform, /create-agent, /extend-agent,
-                       /improve-agent, /create-evals, /eval-and-improve, /review-and-improve);
-                       .claude/skills and .bob/skills symlink here
+                       /improve-agent, /create-evals, /eval-and-improve, /review-and-improve,
+                       /deploy-platform); .claude/skills and .bob/skills symlink here.
+                       create-agent/ also carries the tool-authoring field manuals
+                       (references/) and the live-schema validator (scripts/validate_tools.py)
 .bob/                  Bob config home: mcp.json (the real file — root .mcp.json symlinks
                        to it) + skills symlink
 .ibmi/                 Project-scoped ibmi CLI connections (git-ignored; seeded by
@@ -81,15 +84,20 @@ add quick prompts to `app/config.yaml`, restart `agentos-api`. The
 
 ### Adding tools
 
-Edit a `tools/*.yaml` (schema in `tools/sql-tools-config.schema.json`), then **always**:
+Edit a `tools/*.yaml`, then **always** validate and regenerate:
 
 ```bash
+uv run python .agents/skills/create-agent/scripts/validate_tools.py tools/<file>.yaml
 uv run python parse_mcp_tools.py
 ```
 
-This regenerates `tools/toolsets.json` (the Python side reads it for toolset-name →
+The first command validates the YAML against the authoritative ibmi-mcp-server schema —
+downloaded fresh on every run and discarded, never stored in this repo. The second
+regenerates `tools/toolsets.json` (the Python side reads it for toolset-name →
 tool-list resolution). The MCP server picks up YAML changes via `YAML_AUTO_RELOAD=true`.
 Toolsets that don't appear in `toolsets.json` can't be referenced from `get_toolset(...)`.
+Schema/conventions/pitfalls:
+[`.agents/skills/create-agent/references/tool-design-reference.md`](.agents/skills/create-agent/references/tool-design-reference.md).
 
 ### Model provider
 
@@ -148,7 +156,9 @@ so neither is internet-reachable. This template ships no auth layer (see the del
 cuts below), so network posture is the security boundary: keep port 8000 private (LAN,
 VPN, or an authenticating reverse proxy), and set a strong `DB_PASS` in `.env`. The
 `!reset`/`!override` merge tags need podman-compose 1.5+ (or, if `podman compose`
-delegates to docker-compose, v2.24.4+).
+delegates to docker-compose, v2.24.4+). The full walkthrough lives in the README's
+[Deploy to production](README.md#deploy-to-production) section; the
+[`deploy-platform`](.agents/skills/deploy-platform/SKILL.md) skill drives it.
 
 ### Validation gate
 
@@ -200,7 +210,11 @@ Vendor-specific config like `.claude/settings.json` stays a real file in its own
 - **`/eval-and-improve`** — run the eval suite, diagnose every failure (agent vs case vs
   tool SQL vs environment), fix in scope until green.
 - **`/review-and-improve`** — repo-wide drift sweep (docs vs code vs config).
+- **`/deploy-platform`** — take the proven local platform to production on a host you
+  control: walk the README's Deploy to production section (network posture, production
+  `.env`, the compose.prod override with Podman), then verify the live platform.
 
 Invoke a skill by name (`/extend-agent`) or just describe the task — Claude Code matches
-it from the skill's `description`. The `docs/*.md` files are the long-form field manuals
-the skills lean on (tool YAML schema, `ibmi` CLI setup, worked examples).
+it from the skill's `description`. The long-form field manuals the skills lean on live
+in `docs/*.md` (`ibmi` CLI setup, agent lifecycle) and in
+`.agents/skills/create-agent/references/` (tool YAML schema + authoring loop).

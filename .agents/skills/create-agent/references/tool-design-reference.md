@@ -1,8 +1,8 @@
 # Tool Design Reference
 
-> Companion to `docs/extend-agent.md` and `docs/create-new-agent.md`. Read this **before** authoring a new `tools/*.yaml` — it's the schema, the conventions, and the pitfalls in one place.
+> Companion to [`write-new-tool.md`](write-new-tool.md), [`docs/extend-agent.md`](../../../../docs/extend-agent.md), and [`docs/create-new-agent.md`](../../../../docs/create-new-agent.md). Read this **before** authoring a new `tools/*.yaml` — it's the schema, the conventions, and the pitfalls in one place.
 
-This doc covers **authoring**. For the architectural picture (how MCP server, YAMLs, and `parse_mcp_tools.py` fit together), see [`docs/ibmi-mcp-server.md`](ibmi-mcp-server.md).
+This doc covers **authoring**. For the architectural picture (how MCP server, YAMLs, and `parse_mcp_tools.py` fit together), see [`docs/ibmi-mcp-server.md`](../../../../docs/ibmi-mcp-server.md).
 
 ## 1. YAML top-level shape
 
@@ -13,7 +13,7 @@ toolsets:   # toolset definitions (dict, keyed by toolset name)
 metadata:   # optional global metadata
 ```
 
-The authoritative schema is `tools/sql-tools-config.schema.json`. Schema is `additionalProperties: false` at every level — **unknown keys fail validation**. Read the live schema before adding anything novel.
+The authoritative schema is [`sql-tools-config.json` in the ibmi-mcp-server repo](https://raw.githubusercontent.com/IBM/ibmi-mcp-server/refs/heads/main/packages/server/src/ibmi-mcp-server/schemas/json/sql-tools-config.json) — the validation script ([`../scripts/validate_tools.py`](../scripts/validate_tools.py)) downloads it fresh on every run, so it's never stored (or stale) in this repo. Schema is `additionalProperties: false` at every level — **unknown keys fail validation**. Read the live schema before adding anything novel.
 
 ### Sources
 
@@ -261,11 +261,11 @@ Curated from real validator failures and the live schema:
 
 ## 10. Validation-error → fix map
 
-When `uv run python parse_mcp_tools.py` fails, the error format is roughly:
+When `uv run python .agents/skills/create-agent/scripts/validate_tools.py tools/<file>.yaml` fails, the error format is roughly:
 
 ```
-✗ tools/<file>.yaml: <jsonschema error>
-  at <json-pointer-path>
+✗ tools/<file>.yaml — N error(s)
+    at <json-path>: <jsonschema error>
 ```
 
 Common error → fix:
@@ -295,16 +295,17 @@ When deciding *what* tools to build:
 
 ## 12. Authoring loop
 
-The recommended order — see [`docs/write-new-tool.md`](write-new-tool.md) for the full operator-prompt version:
+The recommended order — see [`write-new-tool.md`](write-new-tool.md) for the full operator-prompt version:
 
 1. **Explore** — `ibmi schemas`, `ibmi tables SAMPLE`, `ibmi columns SAMPLE EMPLOYEE` to capture real column names/types
 2. **Draft the SQL** — write the statement against the explored schema
 3. **Validate the SQL** — `ibmi validate "<your statement>"` (or `ibmi sql "<stmt>"` to run a small slice). Loop on errors
 4. **Author YAML** — against this doc's §2–§5
-5. **Validate YAML** — `uv run python parse_mcp_tools.py`. Loop using §10
-6. **Verify in MCP** — `curl -s http://localhost:3010/mcp/tools | jq '.tools[].name' | grep <your_tool>`
+5. **Validate YAML** — `uv run python .agents/skills/create-agent/scripts/validate_tools.py tools/<file>.yaml` (downloads the live schema, validates, discards). Loop using §10
+6. **Regenerate the index** — `uv run python parse_mcp_tools.py` rewrites `tools/toolsets.json`
+7. **Verify in MCP** — `curl -s http://localhost:3010/mcp/tools | jq '.tools[].name' | grep <your_tool>`
 
-The `ibmi` CLI is the only database utility in this loop — see [`docs/ibmi-cli.md`](ibmi-cli.md) for the command surface.
+The `ibmi` CLI is the only database utility in this loop — see [`docs/ibmi-cli.md`](../../../../docs/ibmi-cli.md) for the command surface.
 
 ---
 
@@ -313,10 +314,11 @@ The `ibmi` CLI is the only database utility in this loop — see [`docs/ibmi-cli
 Every new or edited YAML must pass schema validation before it lands on `main`. Two entry points:
 
 ```bash
-uv run python parse_mcp_tools.py          # schema validation + regenerates tools/toolsets.json
-bash scripts/validate.sh                  # umbrella: ruff + mypy + schema validation
+uv run python .agents/skills/create-agent/scripts/validate_tools.py tools/   # live-schema validation (download → validate → discard)
+uv run python parse_mcp_tools.py                                             # regenerates tools/toolsets.json
+bash scripts/validate.sh                                                     # umbrella: ruff + mypy + schema validation + index regen
 ```
 
 `scripts/validate.sh` is what CI runs; if it's green locally, it's green in CI. A non-zero exit means fix and re-run — re-read §9 and §10 above before editing the YAML, since most failures map to a known mistake.
 
-Always commit the regenerated `tools/toolsets.json` alongside the YAML it was generated from — the Python side reads `toolsets.json` to resolve toolset names. Full authoring loop with worked SAMPLE examples: [`docs/write-new-tool.md`](write-new-tool.md).
+Always commit the regenerated `tools/toolsets.json` alongside the YAML it was generated from — the Python side reads `toolsets.json` to resolve toolset names. Full authoring loop with worked SAMPLE examples: [`write-new-tool.md`](write-new-tool.md).
