@@ -5,7 +5,7 @@
 
 You are pair-programming with the user to give an existing IBM i agent a new capability. That means: design one or more SQL tools, write them as a new `tools/*.yaml`, regenerate `tools/toolsets.json`, wire the toolset into the agent's `MCPTools(... include_tools=get_toolset("..."))`, smoke-test.
 
-The schema, conventions, and pitfalls live in **[`docs/tool-design-reference.md`](tool-design-reference.md)** — read it before authoring YAML. The end-to-end tool-authoring loop with worked SAMPLE examples lives in **[`docs/write-new-tool.md`](write-new-tool.md)**. CLI background: [`docs/ibmi-cli.md`](ibmi-cli.md). This doc orchestrates the iterative agent-extension flow; those are the field manuals.
+The schema, conventions, and pitfalls live in **[`tool-design-reference.md`](../.agents/skills/create-agent/references/tool-design-reference.md)** — read it before authoring YAML. The end-to-end tool-authoring loop with worked SAMPLE examples lives in **[`write-new-tool.md`](../.agents/skills/create-agent/references/write-new-tool.md)**. CLI background: [`docs/ibmi-cli.md`](ibmi-cli.md). This doc orchestrates the iterative agent-extension flow; those are the field manuals.
 
 Loop: clarify → introspect → validate SQL → preview → author YAML → smoke-test → "anything else?".
 
@@ -50,7 +50,7 @@ If the user named a UDTF/view, jump straight to `ibmi columns` / `ibmi describe`
 
 ## 3. Draft and validate the SQL
 
-Write the SQL statement (or statements — one per tool you plan to ship). Apply [`docs/tool-design-reference.md`](tool-design-reference.md) §7 conventions: `FETCH FIRST`, `UPPER()` for EBCDIC, fully qualified names, `:param` placeholders.
+Write the SQL statement (or statements — one per tool you plan to ship). Apply [`tool-design-reference.md`](../.agents/skills/create-agent/references/tool-design-reference.md) §7 conventions: `FETCH FIRST`, `UPPER()` for EBCDIC, fully qualified names, `:param` placeholders.
 
 Validate every statement before adding it to YAML:
 
@@ -86,7 +86,7 @@ This is the equivalent of ixora's `agent_builder.py` "preview-before-register" g
 
 ## 5. Author the YAML
 
-Read [`docs/tool-design-reference.md`](tool-design-reference.md) §2–§6 before authoring. Then create `tools/<new-toolset>.yaml` (or extend `tools/employee-info.yaml` if the new tool naturally fits the SAMPLE toolset). **One toolset per file** is the convention.
+Read [`tool-design-reference.md`](../.agents/skills/create-agent/references/tool-design-reference.md) §2–§6 before authoring. Then create `tools/<new-toolset>.yaml` (or extend `tools/employee-info.yaml` if the new tool naturally fits the SAMPLE toolset). **One toolset per file** is the convention.
 
 Skeleton (fill in from your plan + introspection):
 
@@ -131,14 +131,15 @@ For modifying tools (`readOnly: false`), add `destructiveHint: true` under `anno
 ## 6. Validate and regenerate
 
 ```bash
+uv run python .agents/skills/create-agent/scripts/validate_tools.py tools/<file>.yaml
 uv run python parse_mcp_tools.py
 ```
 
-This validates every YAML against `tools/sql-tools-config.schema.json` and rewrites `tools/toolsets.json`. If it fails:
+The first command validates the YAML against the live ibmi-mcp-server schema (downloaded fresh on every run, then discarded — never stored in this repo); the second rewrites `tools/toolsets.json`. If validation fails:
 
 1. Read the error path and message.
-2. Consult [`docs/tool-design-reference.md`](tool-design-reference.md) §9 (common mistakes) and §10 (validation-error → fix map).
-3. Fix the YAML, rerun.
+2. Consult [`tool-design-reference.md`](../.agents/skills/create-agent/references/tool-design-reference.md) §9 (common mistakes) and §10 (validation-error → fix map).
+3. Fix the YAML, rerun. (Exit code 2 means the schema download itself failed — check the network before blaming the YAML.)
 
 Don't skip rereading the reference — most errors map directly to a known mistake.
 

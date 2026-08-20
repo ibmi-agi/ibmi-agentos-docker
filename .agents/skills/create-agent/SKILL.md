@@ -52,13 +52,14 @@ Open [`tools/toolsets.json`](../../../tools/toolsets.json) and map each capabili
 
 Show the user a short coverage table and get an explicit OK before building anything. **Do not scaffold the agent while toolsets are missing** — `get_toolset("...")` raises on unknown names.
 
-To build or extend tools, follow the loop in [`docs/write-new-tool.md`](../../../docs/write-new-tool.md): explore the real schema with the `ibmi` CLI, draft and validate the SQL, author the YAML against [`docs/tool-design-reference.md`](../../../docs/tool-design-reference.md), then **always** regenerate:
+To build or extend tools, follow the loop in [`references/write-new-tool.md`](references/write-new-tool.md): explore the real schema with the `ibmi` CLI, draft and validate the SQL, author the YAML against [`references/tool-design-reference.md`](references/tool-design-reference.md), then **always** validate and regenerate:
 
 ```bash
+uv run python .agents/skills/create-agent/scripts/validate_tools.py tools/<file>.yaml
 uv run python parse_mcp_tools.py
 ```
 
-The MCP server picks up YAML changes automatically (`YAML_AUTO_RELOAD=true`); the Python side reads `toolsets.json` for name resolution — both must be current.
+The first command downloads the authoritative schema fresh from the [ibmi-mcp-server repo](https://github.com/IBM/ibmi-mcp-server), validates the YAML in memory, and discards it — the schema is never stored in this repo. A non-zero exit means the YAML is broken; its output plus [`references/tool-design-reference.md`](references/tool-design-reference.md) §9–§10 map most errors to a fix (exit 2 means the download itself failed — check the network before blaming the YAML). The second command regenerates `toolsets.json`. The MCP server picks up YAML changes automatically (`YAML_AUTO_RELOAD=true`); the Python side reads `toolsets.json` for name resolution — both must be current.
 
 ## 3. Phase 2 — generate the agent file
 

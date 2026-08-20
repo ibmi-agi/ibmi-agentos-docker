@@ -16,11 +16,11 @@ ibmi-mcp-server (port 3010)
 IBM i system (DB2i_HOST)
 ```
 
-The MCP server image is published at `ghcr.io/ibm/ibmi-mcp-server` and pinned in `example.env` via `MCP_SERVER_VERSION`.
+The MCP server image is published at `ghcr.io/ibm/ibmi-mcp-server` and pinned in `.env.example` via `MCP_SERVER_VERSION`.
 
 ## The `tools/` directory
 
-The template ships several tool YAMLs — `tools/employee-info.yaml` (SAMPLE-schema employee/department/project toolsets), `tools/performance.yaml`, `tools/security-ops.yaml`, `tools/library-list-security.yaml`, and `tools/ptf_tools.yaml`. Add more `tools/*.yaml` files as you grow an agent's surface; see [`docs/write-new-tool.md`](write-new-tool.md) for the authoring loop.
+The template ships several tool YAMLs — `tools/employee-info.yaml` (SAMPLE-schema employee/department/project toolsets), `tools/performance.yaml`, `tools/security-ops.yaml`, `tools/library-list-security.yaml`, and `tools/ptf_tools.yaml`. Add more `tools/*.yaml` files as you grow an agent's surface; see [`write-new-tool.md`](../.agents/skills/create-agent/references/write-new-tool.md) for the authoring loop.
 
 > The `ibmi-text2sql` agent is the exception: it uses the MCP server's **built-in** tools (`list_schemas`, `list_tables_in_schema`, `get_table_columns`, `get_related_objects`, `describe_sql_object`, `validate_query`, `execute_sql`), enabled in `compose.yaml` via `IBMI_ENABLE_DEFAULT_TOOLS` / `IBMI_ENABLE_EXECUTE_SQL`. It does not load a YAML toolset.
 
@@ -29,8 +29,9 @@ Every file under `tools/` is one of:
 | File | Purpose |
 |---|---|
 | `*.yaml` | Tool & toolset definitions — the input. Edit these. |
-| `sql-tools-config.schema.json` | JSON Schema the YAMLs validate against |
 | `toolsets.json` | Generated index of toolset name → tool list. Don't hand-edit |
+
+The JSON Schema the YAMLs validate against is **not stored in this repo** — the validation script downloads it fresh from the ibmi-mcp-server repo on every run and discards it, so it can never go stale.
 
 ### YAML shape (minimal)
 
@@ -75,25 +76,26 @@ Three things to know:
 2. **`security.readOnly: true`** — the server validates that the statement is read-only. Modifying tools (UPDATE, DELETE, CL commands) must omit this or set `false` and pair it with `annotations.destructiveHint: true`.
 3. **`toolsets`** — groups of tools agents can grab as a unit (via `MCPTools(... include_tools=get_toolset("sample_data"))`). Tools can belong to multiple toolsets if they're useful in multiple contexts.
 
-Full schema: `tools/sql-tools-config.schema.json`.
+Full schema: [`sql-tools-config.json` in the ibmi-mcp-server repo](https://raw.githubusercontent.com/IBM/ibmi-mcp-server/refs/heads/main/packages/server/src/ibmi-mcp-server/schemas/json/sql-tools-config.json) — validate against it with `uv run python .agents/skills/create-agent/scripts/validate_tools.py tools/<file>.yaml`.
 
-## The `parse_mcp_tools.py` pipeline
+## The validation + `parse_mcp_tools.py` pipeline
 
 ```
-tools/*.yaml  ──▶  parse_mcp_tools.py  ──▶  tools/toolsets.json
+tools/*.yaml  ──▶  validate_tools.py  ──▶  parse_mcp_tools.py  ──▶  tools/toolsets.json
                           │
-                          └──▶ validates against sql-tools-config.schema.json
+                          └──▶ downloads the live sql-tools-config schema,
+                               validates in memory, discards it
 ```
 
-`parse_mcp_tools.py`:
-1. Reads every `tools/*.yaml`
-2. Validates each against the schema (jsonschema) — bad YAML errors out with line numbers
-3. Extracts `toolsets:` sections, flattens each to `{toolset_name: {tools: [...], source: "...", title: "...", ...}}`
-4. Writes `tools/toolsets.json`
+Two steps, two scripts:
 
-Agents load this manifest via `agents/utils/tools.py::get_toolset(name)`. So **whenever you edit a YAML, regenerate the JSON**:
+1. **`validate_tools.py`** (`.agents/skills/create-agent/scripts/`) downloads the authoritative JSON Schema from the ibmi-mcp-server repo, validates every given YAML against it, and discards the schema — bad YAML errors out with the offending path and message.
+2. **`parse_mcp_tools.py`** extracts `toolsets:` sections, flattens each to `{toolset_name: {tools: [...], source: "...", title: "...", ...}}`, and writes `tools/toolsets.json`.
+
+Agents load this manifest via `agents/utils/tools.py::get_toolset(name)`. So **whenever you edit a YAML, validate and regenerate**:
 
 ```bash
+uv run python .agents/skills/create-agent/scripts/validate_tools.py tools/
 uv run python parse_mcp_tools.py
 ```
 
@@ -102,8 +104,8 @@ The compose file mounts `./tools` into the MCP server with `YAML_AUTO_RELOAD=tru
 ## Bumping `MCP_SERVER_VERSION`
 
 ```bash
-# 1. Update example.env
-sed -i '' 's/MCP_SERVER_VERSION=v[0-9.]*/MCP_SERVER_VERSION=v0.6.0/' example.env
+# 1. Update .env.example
+sed -i '' 's/MCP_SERVER_VERSION=v[0-9.]*/MCP_SERVER_VERSION=v0.6.0/' .env.example
 
 # 2. Apply to your .env
 sed -i '' 's/MCP_SERVER_VERSION=v[0-9.]*/MCP_SERVER_VERSION=v0.6.0/' .env
@@ -116,7 +118,7 @@ podman compose up -d ibmi-mcp-server
 curl -sSf http://localhost:3010/healthz
 ```
 
-If the new version breaks a tool YAML (schema changed, validator stricter), `parse_mcp_tools.py` will fail and tell you which file.
+If the new version breaks a tool YAML (schema changed, validator stricter), `validate_tools.py` will fail and tell you which file — it always validates against the schema on the ibmi-mcp-server repo's `main` branch, so it sees schema changes as soon as they land upstream.
 
 ## Exercising an agent
 

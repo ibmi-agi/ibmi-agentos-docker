@@ -50,7 +50,7 @@ Restate the surface area in 4-5 lines so the user can redirect before you read e
 - Field manuals: [`docs/*.md`](../../../docs/).
 - Coding-agent skills: [`.agents/skills/*/SKILL.md`](../../../.agents/skills/) (frontmatter `name` matches the folder; `description` is trigger-rich; relative links resolve from two levels deep, i.e. `../../../`).
 - Code: [`app/`](../../../app/), [`agents/`](../../../agents/), [`db/`](../../../db/), [`evals/`](../../../evals/), [`scripts/`](../../../scripts/), [`parse_mcp_tools.py`](../../../parse_mcp_tools.py).
-- Configs: [`compose.yaml`](../../../compose.yaml), [`compose.prod.yaml`](../../../compose.prod.yaml), [`Dockerfile`](../../../Dockerfile), [`pyproject.toml`](../../../pyproject.toml), [`tools/`](../../../tools/) YAMLs + schema.
+- Configs: [`compose.yaml`](../../../compose.yaml), [`compose.prod.yaml`](../../../compose.prod.yaml), [`Dockerfile`](../../../Dockerfile), [`pyproject.toml`](../../../pyproject.toml), [`tools/`](../../../tools/) YAMLs (schema validated live from the ibmi-mcp-server repo by `validate.sh`).
 
 Skip: `.venv/`, `*_cache/`, `.git/`, `*.egg-info/`, anything generated (read `tools/toolsets.json` only to verify it's fresh).
 

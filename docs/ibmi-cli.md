@@ -14,7 +14,7 @@ That symmetry is the point. When you are authoring a `tools/*.yaml`, the CLI is 
 2. Draft and validate the SQL the tool will run (`ibmi validate`, `ibmi sql`).
 3. Dry-run a finished YAML tool the same way the MCP server would (`ibmi tool <name> --tools tools/<file>.yaml --dry-run`).
 
-You commit the YAML only after the SQL works in the CLI. See [`docs/write-new-tool.md`](write-new-tool.md) for the end-to-end loop.
+You commit the YAML only after the SQL works in the CLI. See [`write-new-tool.md`](../.agents/skills/create-agent/references/write-new-tool.md) for the end-to-end loop.
 
 ## Install it
 
@@ -88,5 +88,5 @@ Full command reference: <https://ibm-d95bab6e.mintlify.app/cli/commands.md>.
 
 ## Next
 
-- [`docs/write-new-tool.md`](write-new-tool.md) — the full explore → draft → write → validate → commit loop.
-- [`docs/tool-design-reference.md`](tool-design-reference.md) — the YAML schema you'll be writing against.
+- [`write-new-tool.md`](../.agents/skills/create-agent/references/write-new-tool.md) — the full explore → draft → write → validate → commit loop.
+- [`tool-design-reference.md`](../.agents/skills/create-agent/references/tool-design-reference.md) — the YAML schema you'll be writing against.

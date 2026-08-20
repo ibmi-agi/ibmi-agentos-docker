@@ -41,6 +41,12 @@ if ! mypy "${REPO_ROOT}" --config-file "${REPO_ROOT}/pyproject.toml"; then
 fi
 
 echo ""
+echo -e "${DIM}> uv run python .agents/skills/create-agent/scripts/validate_tools.py tools/${NC}"
+if ! (cd "${REPO_ROOT}" && uv run python .agents/skills/create-agent/scripts/validate_tools.py tools/); then
+  failed=1
+fi
+
+echo ""
 echo -e "${DIM}> uv run python parse_mcp_tools.py${NC}"
 if ! (cd "${REPO_ROOT}" && uv run python parse_mcp_tools.py); then
   failed=1

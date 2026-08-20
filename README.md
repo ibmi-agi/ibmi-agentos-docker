@@ -331,9 +331,11 @@ agent_os = AgentOS(
 ### Add tools to an agent
 
 IBM i SQL tools are defined as YAML under `tools/` and exposed by the MCP server. Add a
-`tools/*.yaml`, regenerate the index, and reference the toolset from the agent:
+`tools/*.yaml`, validate it against the live MCP server schema, regenerate the index,
+and reference the toolset from the agent:
 
 ```sh
+uv run python .agents/skills/create-agent/scripts/validate_tools.py tools/my-tools.yaml
 uv run python parse_mcp_tools.py    # tools/*.yaml -> tools/toolsets.json
 ```
 ```python
@@ -403,42 +405,132 @@ The LLM judge follows `AGENT_MODEL` (override with `EVALS_JUDGE_MODEL`). Results
 Postgres and show up at [os.agno.com](https://os.agno.com). To add coverage for your own
 agents, run the `/create-evals` skill; to repair a failing suite, `/eval-and-improve`.
 
-### Regenerate toolsets.json
+### Validate tool YAML + regenerate toolsets.json
 
-After adding or editing tool YAML files in `tools/`, regenerate the consolidated toolset mapping:
+After adding or editing tool YAML files in `tools/`, validate them and regenerate the consolidated toolset mapping:
 
 ```sh
+uv run python .agents/skills/create-agent/scripts/validate_tools.py tools/
 uv run python parse_mcp_tools.py
 ```
 
-This parses every YAML in `tools/`, validates against the MCP server schema, and writes
-`tools/toolsets.json`. Agents load toolsets from this file at startup via `get_toolset()`.
+The first command validates every YAML against the authoritative
+[ibmi-mcp-server](https://github.com/IBM/ibmi-mcp-server) schema — downloaded fresh on
+every run and discarded, so this repo never carries a stale copy. The second writes
+`tools/toolsets.json`; agents load toolsets from this file at startup via `get_toolset()`.
+`bash scripts/validate.sh` runs both (plus ruff + mypy) — it's what CI runs.
 
 ---
 
-## Run in production
+## Deploy to production
 
-```sh
-podman compose -f compose.yaml -f compose.prod.yaml up -d --build
-```
+This template carries no cloud-provider layer at all: production is the same Podman
+Compose you already ran locally, plus the [`compose.prod.yaml`](compose.prod.yaml)
+override — on any host you control. A VPS, a home server, an office box, a partition
+next to your IBM i. A coding-agent skill,
+[`/deploy-platform`](.agents/skills/deploy-platform/SKILL.md), guides you through it.
 
-The `compose.prod.yaml` override drops the dev bind mount and hot reload (the container
-runs the code baked into the image), turns off debug logging, and rebinds Postgres and
-the `ibmi-mcp-server` to loopback so neither is reachable from off-host. The
-`!reset`/`!override` merge tags it uses need podman-compose 1.5+ (or, if
-`podman compose` delegates to docker-compose, v2.24.4+).
+> **Prerequisite:** a host with Podman and a compose provider — the prod override uses
+> the `!reset`/`!override` merge tags, which need podman-compose 1.5+ (or, if
+> `podman compose` delegates to docker-compose, v2.24.4+) — plus a private route for
+> clients to reach port 8000 on it: LAN, VPN, or an authenticating reverse proxy /
+> tunnel.
+
+### 1. Decide the network posture
 
 **This template ships no auth layer** — it is single-tenant by design, so network
-posture is the security boundary. Keep port 8000 private (LAN, VPN, or an
-authenticating reverse proxy / tunnel); don't point a public DNS name at it bare. Set a
-strong `DB_PASS` in `.env` — the dev default is `ai`/`ai`.
+posture *is* the security boundary: anyone who can reach port 8000 can run the agents
+against your IBM i. Pick how clients reach the platform:
 
-After a code change, rebuild and restart:
+```sh
+# LAN / VPN only — nothing extra to run; clients must be on the trusted network
+# (just never expose 8000 beyond it)
+
+# Tailscale — a private, WireGuard-encrypted URL on your tailnet; no public exposure
+tailscale serve 8000
+
+# Authenticating reverse proxy — a public name with auth enforced in front:
+# Caddy/nginx with basic auth or SSO, or a Cloudflare Tunnel paired with a
+# Cloudflare Access policy
+cloudflared tunnel --url http://localhost:8000   # only behind an Access policy
+```
+
+Never point a public DNS name — or an unauthenticated tunnel — at port 8000 bare.
+
+### 2. Set up your production env
+
+Production values live in `.env` on the host — the same file compose already reads:
+
+```sh
+ANTHROPIC_API_KEY=sk-ant-...   # or another provider's key + AGENT_MODEL
+DB2i_HOST=your-ibmi-hostname   # with DB2i_USER / DB2i_PASS
+DB_PASS=<generate a strong one>
+```
+
+The agents reach IBM i through the one shared identity in `DB2i_*` — in production,
+make it a least-privilege profile (read-only where possible), not a *SECOFR-class user.
+`DB_PASS` replaces the dev default (`ai`) — the override keeps Postgres bound to
+loopback, but a real password is still the floor for a production database.
+
+One catch on a host that already ran the dev compose: Postgres reads the password only
+when the `pgdata` volume is first initialized, so changing `DB_PASS` in `.env` won't
+take on its own — the database keeps the old password and the API blocks waiting for
+it. Either change it in place to match —
+`podman compose exec agentos-db psql -U ai -c "ALTER USER ai WITH PASSWORD '<new>';"` —
+or reinitialize with `podman compose down -v` (wipes all platform data).
+
+### 3. Start in production mode
 
 ```sh
 podman compose -f compose.yaml -f compose.prod.yaml up -d --build
+```
+
+The override switches `RUNTIME_ENV` to `prd`, turns off debug logging, drops the dev
+bind mount and hot reload so the container runs the code baked into the image, and
+rebinds Postgres **and** the `ibmi-mcp-server` to loopback so neither is reachable from
+off-host (published container ports can bypass ufw-style host firewalls, so a plain
+`5432:5432` publish really is public on a cloud host). All three services carry
+`restart: unless-stopped`, so the platform survives reboots as long as Podman starts on
+boot (e.g. `systemctl enable podman-restart` on Linux).
+
+### 4. Verify it's up and bounded
+
+From the host:
+
+```sh
+curl -sSf http://localhost:8000/health    # 200 — the API is serving
+curl -sSf http://localhost:3010/healthz   # 200 — MCP server, loopback only
+```
+
+From a machine that should *not* have access: port 8000 must only answer over the route
+you chose in step 1, and ports 5432 / 3010 must not answer at all. Then prove an agent
+end to end — ask one a real question and confirm it answers from your IBM i.
+
+### 5. Connect the control plane and MCP clients
+
+- **AgentOS UI**: at [os.agno.com](https://os.agno.com), connect the OS using the
+  address from step 1 (the LAN/VPN address, tailnet URL, or authenticated proxy URL).
+- **Coding agents** reach the platform's own MCP interface at `/mcp`:
+  `claude mcp add --transport http agentos http://<host>:8000/mcp`. Same posture
+  caveat — `/mcp` carries no auth of its own, so register it only over the private
+  route.
+
+### 6. Redeploy after changes
+
+```sh
+git pull   # or edit in place
+podman compose -f compose.yaml -f compose.prod.yaml up -d --build
+```
+
+Env changes are the same command without `--build` — compose recreates the containers
+with the new `.env` values. Logs, when something looks off:
+
+```sh
 podman compose -f compose.yaml -f compose.prod.yaml logs -f agentos-api
 ```
+
+Teardown is `podman compose -f compose.yaml -f compose.prod.yaml down` (add `-v` to
+also delete the database volume — all sessions, memory, and traces).
 
 ---
 
