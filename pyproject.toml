@@ -8,7 +8,7 @@ license-files = ["LICENSE"]
 authors = [{ name = "IBM i AgentOS" }]
 
 dependencies = [
-  "agno[os,mcp,pgvector,psycopg]==2.8.5",
+  "agno[os,mcp,pgvector,psycopg]==3.0.1",
   "anthropic",
   "openai",
   "python-dotenv",
