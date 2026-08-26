@@ -134,8 +134,8 @@ library_list_agent = Agent(
     # Storage
     db=get_postgres_db(),
     # Session history
-    search_session_history=True,
-    num_history_sessions=2,
+    search_past_sessions=True,
+    num_past_sessions_to_search=2,
     # Agent history
     add_history_to_context=True,
     num_history_runs=3,
