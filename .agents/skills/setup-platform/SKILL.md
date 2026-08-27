@@ -72,9 +72,7 @@ The `ibmi` CLI is the host-side authoring tool the agent-development loop leans 
   cat > .ibmi/config.yaml <<'EOF'
   # Project-scoped ibmi CLI connections — the nearest .ibmi/config.yaml wins
   # over ~/.ibmi/config.yaml, so systems added in this repo stay sandboxed
-  # to it. ${VAR} references expand from the environment at load time; the
-  # CLI loads ./.env itself (run it from the repo root), so the credentials
-  # live only in .env.
+  # to it. ${VAR} references expand from the environment at load time.
   default: dev
   systems:
     dev:
@@ -84,7 +82,7 @@ The `ibmi` CLI is the host-side authoring tool the agent-development loop leans 
   EOF
   ```
 
-- **Verify** against their system — from the repo root; the CLI loads `.env` itself (`./.env`, or `../.env` one level down), so nothing needs exporting:
+- **Verify** against their system:
 
   ```bash
   ibmi sql "SELECT CURRENT_DATE FROM SYSIBM.SYSDUMMY1"
