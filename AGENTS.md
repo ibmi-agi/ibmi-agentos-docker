@@ -160,6 +160,13 @@ VPN, or an authenticating reverse proxy), and set a strong `DB_PASS` in `.env`. 
 [Deploy to production](README.md#deploy-to-production) section; the
 [`deploy-platform`](.agents/skills/deploy-platform/SKILL.md) skill drives it.
 
+### `.env` is the user's file
+
+It holds the IBM i credentials and the model API keys. The user creates it from
+`.env.example` and edits it; skills and coding agents leave its contents to them. Nothing
+needs to export or inspect it: the containers read it via `env_file`, and the `ibmi` CLI
+loads `./.env` on its own (run it from the repo root).
+
 ### Verifying the stack
 
 Prefer podman-native commands to find out whether the stack is up. **Never poll or
