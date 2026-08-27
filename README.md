@@ -482,7 +482,7 @@ or reinitialize with `podman compose down -v` (wipes all platform data).
 ### 3. Start in production mode
 
 ```sh
-podman compose -f compose.yaml -f compose.prod.yaml up -d --build
+podman compose -f compose.yaml -f compose.prod.yaml up -d --build --wait
 ```
 
 The override switches `RUNTIME_ENV` to `prd`, turns off debug logging, drops the dev
@@ -495,11 +495,11 @@ boot (e.g. `systemctl enable podman-restart` on Linux).
 
 ### 4. Verify it's up and bounded
 
-From the host:
+From the host, podman-native (no localhost probes — see [Verifying the stack](AGENTS.md#verifying-the-stack)):
 
 ```sh
-curl -sSf http://localhost:8000/health    # 200 — the API is serving
-curl -sSf http://localhost:3010/healthz   # 200 — MCP server, loopback only
+podman healthcheck run agentos-api && podman healthcheck run ibmi-mcp-server   # exit 0 — API and MCP server serving
+podman ps --format '{{.Names}}\t{{.Status}}\t{{.Ports}}'                        # (healthy) on both; 127.0.0.1: on 5432 and 3010
 ```
 
 From a machine that should *not* have access: port 8000 must only answer over the route
@@ -519,7 +519,7 @@ end to end — ask one a real question and confirm it answers from your IBM i.
 
 ```sh
 git pull   # or edit in place
-podman compose -f compose.yaml -f compose.prod.yaml up -d --build
+podman compose -f compose.yaml -f compose.prod.yaml up -d --build --wait
 ```
 
 Env changes are the same command without `--build` — compose recreates the containers

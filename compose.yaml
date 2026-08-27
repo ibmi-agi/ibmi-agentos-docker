@@ -3,7 +3,7 @@
 # =============================================================================
 #
 # Usage:
-#   podman compose up -d      # start the stack
+#   podman compose up -d --wait   # start the stack, return once healthy
 #   podman compose down       # stop everything
 #
 # Services:
@@ -108,6 +108,17 @@ services:
         condition: service_started
       ibmi-mcp-server:
         condition: service_healthy
+    # Passes only after uvicorn finishes startup (agno lifespan: DB, MCP tool
+    # lists), so `podman compose up --wait` / `podman healthcheck run agentos-api`
+    # answer "is the platform up?" without a host-side probe. start_period covers
+    # first-boot imports; retries cover dev --reload restarts without flipping
+    # to unhealthy.
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
     networks:
       - agentos
 

@@ -5,7 +5,7 @@
 
 You are creating a new IBM i agent in this AgentOS template. The template ships **six reference agents** (`agents/text2sql_agent.py`, `agents/performance_agent.py`, `agents/security_audit_agent.py`, `agents/library_list_security_agent.py`, `agents/ptf_agent.py`, `agents/sample_data_agent.py`). Use **`agents/performance_agent.py`** as the working model; your new agent should mirror its shape and only diverge where the new domain requires.
 
-The user already has the stack running on `http://localhost:8000` (`RUNTIME_ENV=dev`). Uvicorn hot-reloads on edits inside an existing module, but **registering a new agent module requires `podman compose restart agentos-api`** — see Step 6.
+The user already has the stack running on `http://localhost:8000` (`RUNTIME_ENV=dev`). Uvicorn hot-reloads on edits inside an existing module, but **registering a new agent module requires a recreate (`podman compose up -d --force-recreate --no-deps --wait agentos-api`)** — see Step 6.
 
 Two phases, with explicit confirmation gates:
 
@@ -16,8 +16,7 @@ Schema/conventions for tool YAMLs live in [`tool-design-reference.md`](../.agent
 
 ## 0. Preconditions
 
-- Live API: `curl -sSf http://localhost:8000/healthz` returns 200.
-- Live MCP server: `curl -sSf http://localhost:3010/healthz` returns 200.
+- Stack up: `podman healthcheck run agentos-api && podman healthcheck run ibmi-mcp-server` exits 0.
 - `.env` has `ANTHROPIC_API_KEY` (or whatever provider `AGENT_MODEL` points at) and `DB2i_HOST` / `DB2i_USER` / `DB2i_PASS`.
 - `ibmi` works: `ibmi sql "SELECT CURRENT_DATE FROM SYSIBM.SYSDUMMY1"` returns today's date. Needed for any Phase 1 tool work.
 
@@ -86,7 +85,7 @@ For each missing toolset, run [`write-new-tool.md`](../.agents/skills/create-age
 3. **Preview the tool plan** with a markdown table; wait for explicit user confirmation.
 4. **Author the YAML** against [`tool-design-reference.md`](../.agents/skills/create-agent/references/tool-design-reference.md) (§2–§6).
 5. **Validate & regenerate** with `uv run python .agents/skills/create-agent/scripts/validate_tools.py tools/<file>.yaml` (live-schema validation: download → validate → discard) and `uv run python parse_mcp_tools.py` — fix using §9/§10 of the reference doc on failure.
-6. **Load & verify** — a *new* YAML file needs the MCP server recreated (`podman compose up -d --force-recreate ibmi-mcp-server`; its startup cache misses new files and survives a plain restart — edits to existing files auto-reload), then confirm: `curl -s http://localhost:3010/mcp/tools | jq '.tools[].name' | grep <new>`.
+6. **Load & verify** — a *new* YAML file needs the MCP server recreated (`podman compose up -d --force-recreate --no-deps --wait ibmi-mcp-server`; its startup cache misses new files and survives a plain restart — edits to existing files auto-reload), then confirm: `curl -s http://localhost:3010/mcp/tools | jq '.tools[].name' | grep <new>`.
 
 Repeat for each missing toolset. Then return here for Phase 2.
 
@@ -219,7 +218,7 @@ Before editing `app/main.py`, show the user the full registration plan in one ta
 | Instruction blocks | shared | GUARDRAILS, DATA_HANDLING, ERROR_HANDLING, AUDIT, WEB, USER_CONTEXT |
 | Files created | new | agents/security_audit_agent.py |
 | Files edited | edits | app/main.py (import + agents list), app/config.yaml (quick prompts) |
-| Restart needed | podman | podman compose restart agentos-api (after up -d --force-recreate ibmi-mcp-server, if a new tools YAML was added) |
+| Restart needed | podman | podman compose up -d --force-recreate --no-deps --wait agentos-api (after the same for ibmi-mcp-server, if a new tools YAML was added) |
 ```
 
 Ask: **"Confirm registration plan or request changes?"** Wait for explicit OK.
@@ -259,8 +258,7 @@ chat:
 ### 2.6 Restart and smoke test
 
 ```bash
-podman compose restart agentos-api
-until curl -sSf http://localhost:8000/healthz > /dev/null; do sleep 0.5; done
+podman compose up -d --force-recreate --no-deps --wait agentos-api
 curl -s http://localhost:8000/agents | jq '.[] | .id'
 ```
 

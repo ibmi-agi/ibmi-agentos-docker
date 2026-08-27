@@ -17,7 +17,7 @@ This is a **single-pass** loop — one pass usually takes 15-30 minutes. Re-run 
 
 ## 0. Preconditions
 
-- Stack up: `curl -sSf http://localhost:8000/health` and `curl -sSf http://localhost:3010/healthz` both return 200. If not, ask the user to `podman compose up -d --build` first.
+- Stack up: `podman healthcheck run agentos-api && podman healthcheck run ibmi-mcp-server` exits 0. If not, ask the user to `podman compose up -d --build --wait` first.
 - Live container is bound to *this* checkout:
 
   ```bash
@@ -114,8 +114,7 @@ Keep edits short — more than ~5 new instruction lines in one pass means you're
 ## 6. Restart, re-probe failing cases
 
 ```bash
-podman compose restart agentos-api
-until curl -sSf http://localhost:8000/health > /dev/null; do sleep 0.5; done
+podman compose up -d --force-recreate --no-deps --wait agentos-api
 podman exec agentos-api grep -c "<unique substring from your edit>" /app/agents/<slug_underscore>_agent.py
 ```
 

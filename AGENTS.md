@@ -94,7 +94,7 @@ uv run python parse_mcp_tools.py
 The first command validates the YAML against the authoritative ibmi-mcp-server schema —
 downloaded fresh on every run and discarded, never stored in this repo. The second
 regenerates `tools/toolsets.json` (the Python side reads it for toolset-name →
-tool-list resolution). The MCP server auto-reloads **edits to existing YAMLs** (`YAML_AUTO_RELOAD=true`); a **new** `tools/*.yaml` file requires `podman compose up -d --force-recreate ibmi-mcp-server` (its startup tool cache survives a plain restart), then `podman compose restart agentos-api` so `MCPTools` re-fetches the tool list.
+tool-list resolution). The MCP server auto-reloads **edits to existing YAMLs** (`YAML_AUTO_RELOAD=true`); a **new** `tools/*.yaml` file requires `podman compose up -d --force-recreate --no-deps --wait ibmi-mcp-server` (its startup tool cache survives a plain restart), then `podman compose up -d --force-recreate --no-deps --wait agentos-api` so `MCPTools` re-fetches the tool list.
 Toolsets that don't appear in `toolsets.json` can't be referenced from `get_toolset(...)`.
 Schema/conventions/pitfalls:
 [`.agents/skills/create-agent/references/tool-design-reference.md`](.agents/skills/create-agent/references/tool-design-reference.md).
@@ -147,7 +147,7 @@ in scope, run [`/eval-and-improve`](.agents/skills/eval-and-improve/SKILL.md).
 ### Running in production
 
 ```bash
-podman compose -f compose.yaml -f compose.prod.yaml up -d --build
+podman compose -f compose.yaml -f compose.prod.yaml up -d --build --wait
 ```
 
 [`compose.prod.yaml`](compose.prod.yaml) drops the dev bind mount and hot reload,
@@ -155,10 +155,39 @@ turns off debug logging, and rebinds Postgres **and** the ibmi-mcp-server to loo
 so neither is internet-reachable. This template ships no auth layer (see the deliberate
 cuts below), so network posture is the security boundary: keep port 8000 private (LAN,
 VPN, or an authenticating reverse proxy), and set a strong `DB_PASS` in `.env`. The
-`!reset`/`!override` merge tags need podman-compose 1.5+ (or, if `podman compose`
-delegates to docker-compose, v2.24.4+). The full walkthrough lives in the README's
+`!reset`/`!override` merge tags and `up --wait` need podman-compose 1.6+ (or, if
+`podman compose` delegates to docker-compose, v2.24.4+). The full walkthrough lives in the README's
 [Deploy to production](README.md#deploy-to-production) section; the
 [`deploy-platform`](.agents/skills/deploy-platform/SKILL.md) skill drives it.
+
+### Verifying the stack
+
+Prefer podman-native commands to find out whether the stack is up. **Never poll or
+health-check `localhost` from the host shell** (`curl -sSf http://localhost:…`,
+`until curl …; do sleep …; done`, `nc -z localhost …`): on managed Windows machines that
+pattern — powershell → curl.exe → localhost on a non-standard port at a sleep cadence —
+matches an EDR beacon signature and has isolated a developer's laptop. Every container
+that matters declares a healthcheck in `compose.yaml`, so compose and podman answer the
+question without a host-side HTTP client; on macOS/Windows they run inside the podman VM.
+
+| Need | Command |
+|---|---|
+| Boot / rebuild, wait for healthy | `podman compose up -d --build --wait` (prod: `podman compose -f compose.yaml -f compose.prod.yaml up -d --build --wait`) |
+| Restart `agentos-api` after an edit | `podman compose up -d --force-recreate --no-deps --wait agentos-api` |
+| Recreate `ibmi-mcp-server` (new `tools/*.yaml`) | `podman compose up -d --force-recreate --no-deps --wait ibmi-mcp-server` |
+| Is the stack up? (exit 0 = yes) | `podman healthcheck run agentos-api && podman healthcheck run ibmi-mcp-server` |
+| DB + MCP server only (eval runs) | `podman compose up -d --wait agentos-db ibmi-mcp-server` |
+
+Status: `podman ps --filter 'name=^(agentos-api|agentos-db|ibmi-mcp-server)$' --format '{{.Names}}\t{{.Status}}'`
+
+`--wait` returns 0 once each started service is `healthy` (`running` for `agentos-db`,
+which declares no healthcheck in `compose.yaml`) and non-zero when a container exits or turns `unhealthy` — read
+`podman logs <name>` then. It is idempotent; re-run it if a tool call times out.
+`--no-deps` keeps a recreate scoped to the named service (podman-compose otherwise tears
+down its dependencies too). Requires a provider with `up --wait`: podman-compose ≥ 1.6.0
+or docker-compose v2 (`podman compose up --help | grep -- --wait`), on podman ≥ 4.6.
+Driving an agent (`curl -sS -X POST http://localhost:8000/agents/<slug>/runs …`) or
+listing agents/tools is a single request, not a poll — those commands stay.
 
 ### Validation gate
 
@@ -167,8 +196,7 @@ Before committing, all of these must be green:
 ```bash
 bash scripts/format.sh                      # ruff format
 bash scripts/validate.sh                    # ruff check + mypy + tool YAML schema validation
-podman compose up -d && \
-  curl -sSf http://localhost:8000/health    # the stack actually starts
+podman compose up -d --wait                 # the stack starts and passes its healthchecks
 ```
 
 ### Don't add (deliberate cuts)
