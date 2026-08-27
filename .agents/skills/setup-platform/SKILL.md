@@ -1,13 +1,13 @@
 ---
 name: setup-platform
-description: Set up this IBM i AgentOS from a fresh clone — confirm Podman and its compose provider (guiding the install if missing), configure .env (model key + IBM i credentials), create the project-scoped .ibmi/ config for the ibmi CLI, boot the three containers, prove a real agent answer against the user's IBM i, connect the AgentOS UI, then hand over the agent-development loop. Use when the user asks to set up the platform, get started, or bring this repo up on a new machine.
+description: Set up this IBM i AgentOS from a fresh clone — confirm Podman and its compose provider (guiding the install if missing), configure .env (model key + IBM i credentials), create the project-scoped .ibmi/ config for the ibmi CLI, boot the three containers, verify they are healthy and hand the user the agent call that proves a real answer against their IBM i, connect the AgentOS UI, then hand over the agent-development loop. Use when the user asks to set up the platform, get started, or bring this repo up on a new machine.
 ---
 
 # Set Up the Platform
 
 > _**Coding-agent workflow** — a `/slash-command` your coding agent (Claude Code, Codex, others) runs while developing this repo. Invoke it by name (e.g. `/setup-platform`) or describe the task and it triggers automatically._
 
-You are taking the user from a fresh clone to a running platform with a real agent answer from **their** IBM i system. The wow moment is Step 6 — one of the shipped agents reporting live system status from their machine, minutes after cloning. Everything before it is setup; everything after it is handing over the loop.
+You are taking the user from a fresh clone to a running platform with a real agent answer from **their** IBM i system. The wow moment is Step 6 — one of the shipped agents reporting live system status from their machine, minutes after cloning. By default you hand the user that call to run themselves — it keeps them in the loop; they can ask you to run it instead. Everything before it is setup; everything after it is handing over the loop.
 
 **Be self-driving:** anything you can do — open a file, open a URL, launch an app — do it. Stop when progress needs a human: typing a secret, installing software, a sign-in the flow can't continue without. When you do stop, tell the user exactly what to do. Never print or echo secret values.
 
@@ -20,7 +20,7 @@ Kicking off /setup-platform. Here's the map for this trip:
 2. Environment — .env: a model API key + your IBM i credentials
 3. IBM i CLI — project-scoped `.ibmi/` config for the `ibmi` authoring tool
 4. Boot — build and start the three platform containers
-5. Prove it — a real agent answer from your IBM i
+5. Prove it — a real agent answer from your IBM i (I'll hand you the command)
 6. Connect the UI — os.agno.com, one click
 7. Hand over the loop — the six shipped agents and how to build your own
 ```
@@ -115,7 +115,13 @@ If `--wait` exits non-zero, read `podman compose logs agentos-api` / `podman com
 
 ## 6. Prove it
 
-Ask the Performance Monitor for live system status — it reads `QSYS2` services that exist on every IBM i, so it works regardless of what's installed:
+Step 5's `--wait` already proved the stack healthy. Confirm the API once more, podman-natively, and say so:
+
+```bash
+podman healthcheck run agentos-api && podman healthcheck run ibmi-mcp-server && echo "API and MCP server healthy"
+```
+
+Then, by default, **hand the test to the user rather than running it yourself** — this is their moment, and seeing the answer arrive in their own terminal keeps them in the loop. Present this command; it asks the Performance Monitor for live system status (it reads `QSYS2` services that exist on every IBM i):
 
 ```bash
 curl -sS -X POST http://localhost:8000/agents/ibmi-performance-monitor/runs \
@@ -128,7 +134,7 @@ curl -sS -X POST http://localhost:8000/agents/ibmi-performance-monitor/runs \
 jq -r '.content // .' < /tmp/setup-check.json
 ```
 
-Quote the answer to the user — that's their IBM i talking, through an agent they now own.
+Tell them what to expect — a paragraph of memory-pool and CPU figures: that's their IBM i talking, through an agent they now own. If they'd rather you run it, run it and quote the answer. Either way, if it fails the usual suspects are the IBM i credentials in `.env` (`podman compose logs ibmi-mcp-server`) or the model key (`podman compose logs agentos-api`).
 
 ## 7. Connect the AgentOS UI
 
