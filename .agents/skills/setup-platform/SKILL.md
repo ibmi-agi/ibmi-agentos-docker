@@ -34,7 +34,7 @@ Read [`AGENTS.md`](../../../AGENTS.md) end to end — it's the source of truth f
 This skill's runtime is **Podman** (daemonless, no Docker Desktop). Two pieces have to check out:
 
 - **The runtime**: `podman info` succeeds. On macOS and Windows, Podman runs containers in a VM — if `podman info` fails but `podman` exists, check `podman machine list`: no machine → `podman machine init`; a stopped machine → `podman machine start`, then poll `podman info` until it's up. On Linux there's no machine step.
-- **The compose provider**: `podman compose version` succeeds. `podman compose` delegates to an external provider (`podman-compose`) — Podman alone isn't enough to bring the stack up.
+- **The compose provider**: `podman compose version` succeeds, and `podman compose up --help` lists `--wait`. `podman compose` delegates to an external provider (`podman-compose`) — Podman alone isn't enough to bring the stack up — and the skills lean on `up --wait`: podman-compose **1.6.0+** or docker-compose v2 (podman-compose ≤ 1.5 lacks it: `brew upgrade podman-compose` / `pip install -U podman-compose`), on Podman ≥ 4.6.
 
 **If Podman (or the compose provider) isn't installed, stop and hand the user the setup** — don't install it for them, and don't fall back to Docker:
 
@@ -49,7 +49,7 @@ This skill's runtime is **Podman** (daemonless, no Docker Desktop). Two pieces h
 - **Linux**: install both from the distro's package manager — `sudo apt install podman podman-compose` (Debian/Ubuntu) or `sudo dnf install podman podman-compose` (Fedora/RHEL). No machine step needed.
 - **Windows**: install [Podman Desktop](https://podman-desktop.io) (or `winget install RedHat.Podman`), then `podman machine init` + `podman machine start`, and `pip install podman-compose` for the compose provider.
 
-Wait for them to confirm, then re-run both checks (`podman info`, `podman compose version`) before moving on.
+Wait for them to confirm, then re-run the checks (`podman info`, `podman compose version`, `podman compose up --help | grep -- --wait`) before moving on.
 
 ## 3. Environment
 
@@ -96,14 +96,22 @@ Tell the user the sandbox rule in one line: any further system they add from ins
 
 ## 5. Boot
 
-Start the platform with `podman compose up -d --build`. Three containers come up: `agentos-db` (Postgres + pgvector), `ibmi-mcp-server` (the IBM i tools server), and `agentos-api` (the agents). Poll until both health probes pass (the first build takes a few minutes):
+Build the image, then start the platform and wait for it:
 
 ```bash
-curl -sSf http://localhost:8000/health     # AgentOS API
-curl -sSf http://localhost:3010/healthz    # IBM i MCP server
+podman compose build            # the first build takes a few minutes
+podman compose up -d --wait     # returns 0 once the stack is healthy
 ```
 
-If either never comes up, read `podman compose logs agentos-api` / `podman compose logs ibmi-mcp-server` and fix what you find. The MCP server failing health is almost always the IBM i credentials in `.env`.
+Three containers come up: `agentos-db` (Postgres + pgvector), `ibmi-mcp-server` (the IBM i tools server), and `agentos-api` (the agents). `--wait` blocks until `ibmi-mcp-server` and `agentos-api` pass the healthchecks declared in `compose.yaml`, and exits non-zero if either container exits or turns unhealthy. It is idempotent — re-run it if a tool call times out. Show the result:
+
+```bash
+podman ps --filter 'name=^(agentos-api|agentos-db|ibmi-mcp-server)$' --format '{{.Names}}\t{{.Status}}'
+```
+
+> **No host-side health polling — prefer podman-native commands.** Never `curl`/`nc` `localhost` in a loop to wait for the containers: on managed Windows laptops that pattern (powershell → curl.exe → localhost:8000 on a sleep cadence) matches an EDR beacon signature and has isolated a developer's machine. `--wait` and `podman healthcheck run` execute inside the podman VM; nothing on the host talks to localhost. See [`AGENTS.md`](../../../AGENTS.md) → *Verifying the stack*.
+
+If `--wait` exits non-zero, read `podman compose logs agentos-api` / `podman compose logs ibmi-mcp-server` and fix what you find. The MCP server failing health is almost always the IBM i credentials in `.env`.
 
 ## 6. Prove it
 

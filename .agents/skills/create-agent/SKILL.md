@@ -13,12 +13,11 @@ Agents here get their IBM i tools from the **`ibmi-mcp-server`** container: tool
 
 ## 0. Preconditions
 
-- Live API: `curl -sSf http://localhost:8000/health` returns 200.
-- Live MCP server: `curl -sSf http://localhost:3010/healthz` returns 200.
+- Stack up: `podman healthcheck run agentos-api && podman healthcheck run ibmi-mcp-server` exits 0 (API and MCP server both healthy).
 - `.env` has a model key (`ANTHROPIC_API_KEY` by default) and `DB2i_HOST` / `DB2i_USER` / `DB2i_PASS`.
 - If Phase 1 tool work is likely: `ibmi sql "SELECT CURRENT_DATE FROM SYSIBM.SYSDUMMY1"` returns today's date ([`docs/ibmi-cli.md`](../../../docs/ibmi-cli.md) covers setup).
 
-If the stack isn't up, ask the user to run `podman compose up -d --build` and wait. Don't proceed against a broken stack.
+If the stack isn't up, ask the user to run `podman compose up -d --build --wait`. Don't proceed against a broken stack.
 
 ## 1. Find the agent worth building
 
@@ -136,24 +135,22 @@ Add the agent to [`app/config.yaml`](../../../app/config.yaml) under its `id`, f
 **If Phase 1 added a new `tools/*.yaml` file, recreate the MCP server first** — a plain restart is not enough (its YAML tool cache survives a restart; only a fresh container re-scans the tools directory), and the API must restart *after* it, because `MCPTools` fetches the tool list once at agent startup:
 
 ```bash
-podman compose up -d --force-recreate ibmi-mcp-server
-until curl -sSf http://localhost:3010/healthz > /dev/null; do sleep 0.5; done
+podman compose up -d --force-recreate --no-deps --wait ibmi-mcp-server
 ```
 
-Then the API. Uvicorn hot-reloads edits inside existing modules, but **registering a new agent module requires a restart**:
+Then the API. Uvicorn hot-reloads edits inside existing modules, but **registering a new agent module requires a recreate** (`--wait` returns once the API is healthy again):
 
 ```bash
-podman compose restart agentos-api
+podman compose up -d --force-recreate --no-deps --wait agentos-api
 ```
 
 (Edits to an *existing* tool YAML need neither — `YAML_AUTO_RELOAD=true` covers that case.)
 
-New pip deps instead? Add them to [`pyproject.toml`](../../../pyproject.toml), then `./scripts/generate_requirements.sh && podman compose up -d --build`.
+New pip deps instead? Add them to [`pyproject.toml`](../../../pyproject.toml), then `./scripts/generate_requirements.sh && podman compose up -d --build --wait`.
 
 Verify the agent registered before smoke-testing:
 
 ```bash
-until curl -sSf http://localhost:8000/health > /dev/null; do sleep 0.5; done
 curl -s http://localhost:8000/agents | jq -r '.[].id' | grep <slug>
 ```
 

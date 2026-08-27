@@ -11,7 +11,7 @@ Loop: clarify → introspect → validate SQL → preview → author YAML → sm
 
 ## 0. Preconditions
 
-- Stack up: `curl -sSf http://localhost:8000/healthz` and `curl -sSf http://localhost:3010/healthz` both return 200.
+- Stack up: `podman healthcheck run agentos-api && podman healthcheck run ibmi-mcp-server` exits 0.
 - The user has named (a) the existing agent (slug — the SAMPLE Data Agent is `ibmi-sample`) and (b) the capability they want to add.
 - `ibmi` CLI working: `ibmi sql "SELECT CURRENT_DATE FROM SYSIBM.SYSDUMMY1"` returns today's date. Used for introspection and SQL validation. Setup: [`docs/ibmi-cli.md`](ibmi-cli.md).
 
@@ -148,8 +148,7 @@ Don't skip rereading the reference — most errors map directly to a known mista
 The compose file mounts `./tools` into the MCP container with `YAML_AUTO_RELOAD=true`, so **edits to an existing YAML** appear within a few seconds. **A new `tools/*.yaml` file does not auto-load** — the server caches the file set at startup, the watcher only sees files that existed then, and the cache survives a plain restart — so recreate the container first:
 
 ```bash
-podman compose up -d --force-recreate ibmi-mcp-server
-until curl -sSf http://localhost:3010/healthz > /dev/null; do sleep 0.5; done
+podman compose up -d --force-recreate --no-deps --wait ibmi-mcp-server
 ```
 
 Then confirm the tool is published:
@@ -198,8 +197,7 @@ Then update the agent's inline `INSTRUCTIONS` f-string in `agents/<slug>.py` —
 The API restart must come *after* step 7's MCP-server recreate when a new YAML file was added — `MCPTools` fetches the tool list once at agent startup:
 
 ```bash
-podman compose restart agentos-api
-sleep 2
+podman compose up -d --force-recreate --no-deps --wait agentos-api
 curl -sS -X POST http://localhost:8000/agents/ibmi-<slug>/runs \
   -F message='<question only the new toolset can answer>'
 ```

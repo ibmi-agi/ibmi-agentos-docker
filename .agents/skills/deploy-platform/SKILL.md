@@ -37,7 +37,7 @@ Read [`AGENTS.md`](../../../AGENTS.md), the README's [Deploy to production](../.
 
 Four checks before anything starts:
 
-- **Podman + compose provider.** `podman info` works, and `podman compose version` answers. The prod override uses the `!reset`/`!override` merge tags — podman-compose 1.5+ (or docker-compose v2.24.4+ behind `podman compose`). If the versions are too old, stop and hand the user the upgrade path before going further.
+- **Podman + compose provider.** `podman info` works, and `podman compose version` answers. The prod override uses the `!reset`/`!override` merge tags and the skill relies on `up --wait` — podman-compose 1.6.0+ (or docker-compose v2.24.4+ behind `podman compose`); `podman compose up --help` must list `--wait`. If the versions are too old, stop and hand the user the upgrade path before going further.
 - **Production `.env`.** The file exists with a model key (`ANTHROPIC_API_KEY` by default), real `DB2i_HOST` / `DB2i_USER` / `DB2i_PASS`, and a strong `DB_PASS` (the dev default is `ai`). Check *presence*, not values — `grep -c '^DB_PASS=' .env`-style probes, never printing. Two production-only conversations to have out loud:
   - **The IBM i identity.** Every agent shares the one `DB2i_*` profile. Production wants a least-privilege profile — read-only where possible — not a *SECOFR-class user. Ask which profile this is; recommend a dedicated one if they hesitate.
   - **The `DB_PASS` catch.** Postgres reads the password only when the `pgdata` volume is first initialized. If this host already ran the dev compose and they're changing `DB_PASS` now, the change won't take on its own — either alter it in place (`podman compose exec agentos-db psql -U ai -c "ALTER USER ai WITH PASSWORD '<new>';"` — have *them* run it with the real value) or `podman compose down -v` (say plainly: wipes all sessions, memory, traces).
@@ -63,16 +63,16 @@ Tailscale and proxy setups are theirs to run (separate terminal; `tailscale serv
 **First, is this a first deploy or a redeploy?** `podman ps` — if the stack is already up with the prod override, take the redeploy path: rebuild with the same command below (code), or recreate without `--build` (env), then skip to Step 5. Otherwise:
 
 ```bash
-podman compose -f compose.yaml -f compose.prod.yaml up -d --build
+podman compose -f compose.yaml -f compose.prod.yaml up -d --build --wait
 ```
 
-Narrate what the override just did — `RUNTIME_ENV=prd`, debug off, no bind mount or hot reload (the container runs the code baked into the image), Postgres and `ibmi-mcp-server` rebound to loopback. Watch the boot with a bounded log read (`podman compose -f compose.yaml -f compose.prod.yaml logs --tail 50 agentos-api`) — clean start, no tracebacks, all six agents registered.
+Narrate what the override just did — `RUNTIME_ENV=prd`, debug off, no bind mount or hot reload (the container runs the code baked into the image), Postgres and `ibmi-mcp-server` rebound to loopback. `--wait` returns once all three containers are up and healthy; then a bounded log read (`podman compose -f compose.yaml -f compose.prod.yaml logs --tail 50 agentos-api`) — clean start, no tracebacks, all six agents registered.
 
 ## 5. Prove it live and bounded
 
 This is the payoff of deploying with a coding agent — you verify the platform, not just start it. Both directions matter:
 
-- **Up** (from the host): `curl -sSf http://localhost:8000/health` → 200; `curl -sSf http://localhost:3010/healthz` → 200.
+- **Up** (from the host, podman-native — no localhost probes): `podman healthcheck run agentos-api && podman healthcheck run ibmi-mcp-server` → exit 0; `podman ps --filter 'name=^(agentos-api|agentos-db|ibmi-mcp-server)$' --format '{{.Names}}\t{{.Status}}\t{{.Ports}}'` → `(healthy)` on both.
 - **Bounded** (from a machine that should *not* have access — this part is the user's to run; give them the exact probes): port 8000 answers only over the posture from Step 3; 5432 and 3010 don't answer at all. If they have no second machine handy, at minimum confirm the publish bindings yourself: `podman ps --format '{{.Names}} {{.Ports}}'` must show `127.0.0.1:` on 5432 and 3010.
 - **Real** (end to end): one agent run through the API, e.g. the performance agent answering "What is the current system status?" — a 200 with non-empty content, answered from their IBM i.
 - **Connected**: have them connect the AgentOS UI at os.agno.com to the Step 3 address, and register coding agents with `claude mcp add --transport http agentos http://<address>/mcp` — over the private route only.
@@ -83,7 +83,7 @@ Close the step by showing what you verified, compactly — their platform is liv
 
 Finish with what they own now:
 
-- code changes → `podman compose -f compose.yaml -f compose.prod.yaml up -d --build`
+- code changes → `podman compose -f compose.yaml -f compose.prod.yaml up -d --build --wait`
 - env changes → edit `.env`, then the same command without `--build`
 - logs → `podman compose -f compose.yaml -f compose.prod.yaml logs -f agentos-api`
 - teardown → `podman compose -f compose.yaml -f compose.prod.yaml down` (`-v` also deletes the database volume — all sessions, memory, traces)

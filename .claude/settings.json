@@ -17,11 +17,14 @@
       "Bash(podman info:*)",
       "Bash(podman machine list:*)",
       "Bash(podman compose version:*)",
-      "Bash(curl -sSf http://localhost:8000/:*)",
+      "Bash(podman compose logs:*)",
+      "Bash(podman compose -f compose.yaml -f compose.prod.yaml up:*)",
+      "Bash(podman healthcheck run:*)",
+      "Bash(podman ps:*)",
+      "Bash(podman exec agentos-api grep:*)",
       "Bash(curl -sS -X POST http://localhost:8000/:*)",
       "Bash(curl -s http://localhost:8000/:*)",
-      "Bash(curl -sSf http://localhost:3010/:*)",
-      "Bash(nc -z localhost:*)",
+      "Bash(curl -s http://localhost:3010/:*)",
       "Bash(jq:*)",
       "WebFetch(domain:docs.agno.com)"
     ]

@@ -13,7 +13,7 @@ This is the user-driven half of the iteration loop. The autonomous half lives in
 
 ## 0. Preconditions
 
-- Stack up: `curl -sSf http://localhost:8000/health` and `curl -sSf http://localhost:3010/healthz` both return 200. If not, ask the user to `podman compose up -d --build` first.
+- Stack up: `podman healthcheck run agentos-api && podman healthcheck run ibmi-mcp-server` exits 0. If not, ask the user to `podman compose up -d --build --wait` first.
 - Live container is bound to *this* checkout — otherwise restarts won't pick up your edits:
 
   ```bash
@@ -66,15 +66,14 @@ Keep edits surgical — one change per iteration so each can be smoke-tested ind
 ## 5. Restart
 
 ```bash
-podman compose restart agentos-api
+podman compose up -d --force-recreate --no-deps --wait agentos-api
 ```
 
-New pip deps: `./scripts/generate_requirements.sh && podman compose up -d --build` instead. Edits to an existing tool YAML don't need a restart — the MCP server auto-reloads them (the API restart above is still the deterministic option when `toolsets.json` changed). A **new** `tools/*.yaml` file is the exception: the MCP server's startup cache misses new files and survives a plain restart, so `podman compose up -d --force-recreate ibmi-mcp-server`, wait for `http://localhost:3010/healthz`, then restart `agentos-api` so `MCPTools` re-fetches the tool list.
+New pip deps: `./scripts/generate_requirements.sh && podman compose up -d --build --wait` instead. Edits to an existing tool YAML don't need a restart — the MCP server auto-reloads them (the API recreate above is still the deterministic option when `toolsets.json` changed). A **new** `tools/*.yaml` file is the exception: the MCP server's startup cache misses new files and survives a plain restart, so `podman compose up -d --force-recreate --no-deps --wait ibmi-mcp-server` (`--wait` returns once it is healthy), then recreate `agentos-api` the same way so `MCPTools` re-fetches the tool list.
 
-Poll `/health` until the API is back, then confirm the edit reached the container:
+`--wait` returns once the API is healthy again; then confirm the edit reached the container:
 
 ```bash
-until curl -sSf http://localhost:8000/health > /dev/null; do sleep 0.5; done
 podman exec agentos-api grep -c "<unique substring from your edit>" /app/agents/<slug_underscore>_agent.py
 ```
 

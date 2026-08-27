@@ -99,12 +99,11 @@ uv run python .agents/skills/create-agent/scripts/validate_tools.py tools/
 uv run python parse_mcp_tools.py
 ```
 
-The compose file mounts `./tools` into the MCP server with `YAML_AUTO_RELOAD=true`, so the MCP server picks up **edits to existing YAMLs** within a few seconds. A **new `tools/*.yaml` file** needs the container recreated — the server caches the file set at startup, the watcher misses new files, and the cache survives a plain restart — then an `agentos-api` restart, because `MCPTools` fetches the tool list once at agent startup:
+The compose file mounts `./tools` into the MCP server with `YAML_AUTO_RELOAD=true`, so the MCP server picks up **edits to existing YAMLs** within a few seconds. A **new `tools/*.yaml` file** needs the container recreated — the server caches the file set at startup, the watcher misses new files, and the cache survives a plain restart — then an `agentos-api` recreate, because `MCPTools` fetches the tool list once at agent startup (`--wait` returns once each is healthy):
 
 ```bash
-podman compose up -d --force-recreate ibmi-mcp-server
-until curl -sSf http://localhost:3010/healthz > /dev/null; do sleep 0.5; done
-podman compose restart agentos-api
+podman compose up -d --force-recreate --no-deps --wait ibmi-mcp-server
+podman compose up -d --force-recreate --no-deps --wait agentos-api
 ```
 
 The toolsets.json is read by the Python agents only — they need it regenerated to know the new toolset name exists.
@@ -120,10 +119,10 @@ sed -i '' 's/MCP_SERVER_VERSION=v[0-9.]*/MCP_SERVER_VERSION=v0.6.0/' .env
 
 # 3. Pull and recreate
 podman compose pull ibmi-mcp-server
-podman compose up -d ibmi-mcp-server
+podman compose up -d --wait ibmi-mcp-server
 
 # 4. Smoke
-curl -sSf http://localhost:3010/healthz
+podman healthcheck run ibmi-mcp-server   # exit 0
 ```
 
 If the new version breaks a tool YAML (schema changed, validator stricter), `validate_tools.py` will fail and tell you which file — it always validates against the schema on the ibmi-mcp-server repo's `main` branch, so it sees schema changes as soon as they land upstream.
