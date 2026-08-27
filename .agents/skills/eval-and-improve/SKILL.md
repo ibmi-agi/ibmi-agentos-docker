@@ -13,8 +13,7 @@ One thing to hold the whole time: **every case runs real (read-only) SQL against
 
 ## 0. Preconditions
 
-- Postgres reachable on 5432: `nc -z localhost 5432` returns 0. If not, `podman compose up -d agentos-db`.
-- MCP server live: `curl -sSf http://localhost:3010/healthz` returns 200. If not, `podman compose up -d ibmi-mcp-server`. Cases import the agents in-process — no AgentOS API server needed — but their tools call the MCP server for real.
+- `agentos-db` and `ibmi-mcp-server` up: `podman compose up -d --wait agentos-db ibmi-mcp-server` exits 0 — idempotent: it starts whatever is missing and returns once Postgres is running and the MCP server is healthy (non-zero → `podman logs ibmi-mcp-server`). Cases import the agents in-process — no AgentOS API server needed — but their tools call the MCP server for real over the published ports (5432, 3010).
 - Venv active: `source .venv/bin/activate` (run `./scripts/venv_setup.sh` first on a fresh checkout).
 - `.env` populated: a model key (`ANTHROPIC_API_KEY` by default) and `DB2i_HOST` / `DB2i_USER` / `DB2i_PASS`. `evals/__main__.py` loads `.env` itself, defaults `MCP_URL` to `http://localhost:3010/mcp` for host runs, and points the LLM judge at `AGENT_MODEL` (override with `EVALS_JUDGE_MODEL`).
 
@@ -51,7 +50,7 @@ For every failed case, decide which kind of failure it is and fix at the appropr
 | Same case flips PASS/FAIL across consecutive runs with no code change | Judge variance — rubric is too loose | Re-run 2-3 times to confirm; if it keeps flipping, tighten the case's `criteria` (more specific, more falsifiable) |
 | Single case fails on full suite but passes alone | Transient flake, model rate limit, or a slow IBM i query hitting the timeout | Re-run in isolation; if it passes, re-run the suite. Persistent timeouts on a healthy system → raise that case's `timeout_seconds`, not the agent |
 | Many cases fail at once with connection/tool errors | MCP server down, bad `DB2i_*` credentials, or the IBM i unreachable | `podman logs ibmi-mcp-server --tail 50`. Environment — do NOT paper over with prompt edits |
-| `eval_db` write errors | Postgres down | `podman compose up -d agentos-db`; check `podman logs agentos-db` |
+| `eval_db` write errors | Postgres down | `podman compose up -d --wait agentos-db`; check `podman logs agentos-db` |
 
 **Rule:** never weaken a case to make it green. Edit a case only when the assertion was wrong (overspecified rubric, wrong tool name, a value-pinned criterion, a gated-tool expectation). Catching a real regression is the whole point.
 

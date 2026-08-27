@@ -19,9 +19,7 @@ The `ibmi` CLI is the only database utility you use here. Background and command
 - Stack healthy:
 
   ```bash
-  podman compose up -d --build
-  until curl -sSf http://localhost:8000/healthz > /dev/null; do sleep 0.5; done
-  curl -sSf http://localhost:3010/healthz
+  podman compose up -d --build --wait
   ```
 
 - YAML auto-reload on (default — confirm `YAML_AUTO_RELOAD=true` is set on the `ibmi-mcp-server` service in `compose.yaml`).
@@ -166,12 +164,11 @@ bash scripts/validate.sh
 
 ## 5. Verify live
 
-`ibmi-mcp-server` picks up **edits to existing YAMLs** automatically (`YAML_AUTO_RELOAD=true`). A **new `tools/*.yaml` file is different**: the server caches the file set at startup and the watcher misses new files — and the cache survives a plain restart — so recreate the container, then restart the API so `MCPTools` re-fetches its tool list:
+`ibmi-mcp-server` picks up **edits to existing YAMLs** automatically (`YAML_AUTO_RELOAD=true`). A **new `tools/*.yaml` file is different**: the server caches the file set at startup and the watcher misses new files — and the cache survives a plain restart — so recreate the container, then recreate the API so `MCPTools` re-fetches its tool list (`--wait` returns once each is healthy):
 
 ```bash
-podman compose up -d --force-recreate ibmi-mcp-server
-until curl -sSf http://localhost:3010/healthz > /dev/null; do sleep 0.5; done
-podman compose restart agentos-api
+podman compose up -d --force-recreate --no-deps --wait ibmi-mcp-server
+podman compose up -d --force-recreate --no-deps --wait agentos-api
 ```
 
 Confirm the new tool is published:

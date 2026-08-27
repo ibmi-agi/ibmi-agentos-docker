@@ -39,7 +39,7 @@ This is a **recurring sweep** — on a clean repo it ends with "no diffs"; on a 
 
 ## 0. Preconditions
 
-- Live stack reachable: `curl -sSf http://localhost:8000/health` and `curl -sSf http://localhost:3010/healthz` return 200. If not, ask the user to `podman compose up -d --build` first — Step 4 needs a live stack.
+- Live stack reachable: `podman healthcheck run agentos-api && podman healthcheck run ibmi-mcp-server` exits 0. If not, ask the user to `podman compose up -d --build --wait` first — Step 4 needs a live stack.
 - Recommend a feature branch so auto-fixes are easy to revert: `git checkout -b review/$(date +%Y%m%d)`.
 
 ## 1. Scope check
