@@ -69,7 +69,7 @@ Keep edits surgical — one change per iteration so each can be smoke-tested ind
 podman compose restart agentos-api
 ```
 
-New pip deps: `./scripts/generate_requirements.sh && podman compose up -d --build` instead. Tool YAML changes alone don't need a restart — the MCP server auto-reloads them — but the restart is still the deterministic option when `toolsets.json` changed.
+New pip deps: `./scripts/generate_requirements.sh && podman compose up -d --build` instead. Edits to an existing tool YAML don't need a restart — the MCP server auto-reloads them (the API restart above is still the deterministic option when `toolsets.json` changed). A **new** `tools/*.yaml` file is the exception: the MCP server's startup cache misses new files and survives a plain restart, so `podman compose up -d --force-recreate ibmi-mcp-server`, wait for `http://localhost:3010/healthz`, then restart `agentos-api` so `MCPTools` re-fetches the tool list.
 
 Poll `/health` until the API is back, then confirm the edit reached the container:
 

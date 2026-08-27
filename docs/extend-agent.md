@@ -145,18 +145,26 @@ Don't skip rereading the reference — most errors map directly to a known mista
 
 ## 7. Verify the MCP server picked it up
 
-The compose file mounts `./tools` into the MCP container with `YAML_AUTO_RELOAD=true`, so changes should appear within a few seconds:
+The compose file mounts `./tools` into the MCP container with `YAML_AUTO_RELOAD=true`, so **edits to an existing YAML** appear within a few seconds. **A new `tools/*.yaml` file does not auto-load** — the server caches the file set at startup, the watcher only sees files that existed then, and the cache survives a plain restart — so recreate the container first:
+
+```bash
+podman compose up -d --force-recreate ibmi-mcp-server
+until curl -sSf http://localhost:3010/healthz > /dev/null; do sleep 0.5; done
+```
+
+Then confirm the tool is published:
 
 ```bash
 curl -s http://localhost:3010/mcp/tools | jq '.tools[].name' | grep <new-tool-name>
 ```
 
-If the tool doesn't appear:
+If the tool still doesn't appear:
 
 ```bash
-podman compose logs ibmi-mcp-server --tail 50    # check for reload errors
-podman compose restart ibmi-mcp-server           # nuclear option
+podman compose logs ibmi-mcp-server --tail 50    # check for load errors
 ```
+
+A line like `Registering N cached YAML tools (cache hit)` with the old tool count means the recreate didn't happen — a plain `restart` keeps the stale cache.
 
 ## 8. Wire into the agent
 
@@ -186,6 +194,8 @@ If any tool in the new toolset is modifying (`readOnly: false`), add its name to
 Then update the agent's inline `INSTRUCTIONS` f-string in `agents/<slug>.py` — add a routing rule that tells the agent **when** to reach for the new toolset. Without this, the agent will see new tools but not know when to pick them.
 
 ## 9. Restart and smoke test
+
+The API restart must come *after* step 7's MCP-server recreate when a new YAML file was added — `MCPTools` fetches the tool list once at agent startup:
 
 ```bash
 podman compose restart agentos-api
