@@ -166,7 +166,15 @@ bash scripts/validate.sh
 
 ## 5. Verify live
 
-`ibmi-mcp-server` watches `tools/` and reloads on YAML changes (`YAML_AUTO_RELOAD=true`). Confirm the new tool is published:
+`ibmi-mcp-server` picks up **edits to existing YAMLs** automatically (`YAML_AUTO_RELOAD=true`). A **new `tools/*.yaml` file is different**: the server caches the file set at startup and the watcher misses new files — and the cache survives a plain restart — so recreate the container, then restart the API so `MCPTools` re-fetches its tool list:
+
+```bash
+podman compose up -d --force-recreate ibmi-mcp-server
+until curl -sSf http://localhost:3010/healthz > /dev/null; do sleep 0.5; done
+podman compose restart agentos-api
+```
+
+Confirm the new tool is published:
 
 ```bash
 curl -s http://localhost:3010/mcp/tools | jq '.tools[].name' | grep list_employees_by_department

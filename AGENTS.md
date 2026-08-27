@@ -94,7 +94,7 @@ uv run python parse_mcp_tools.py
 The first command validates the YAML against the authoritative ibmi-mcp-server schema —
 downloaded fresh on every run and discarded, never stored in this repo. The second
 regenerates `tools/toolsets.json` (the Python side reads it for toolset-name →
-tool-list resolution). The MCP server picks up YAML changes via `YAML_AUTO_RELOAD=true`.
+tool-list resolution). The MCP server auto-reloads **edits to existing YAMLs** (`YAML_AUTO_RELOAD=true`); a **new** `tools/*.yaml` file requires `podman compose up -d --force-recreate ibmi-mcp-server` (its startup tool cache survives a plain restart), then `podman compose restart agentos-api` so `MCPTools` re-fetches the tool list.
 Toolsets that don't appear in `toolsets.json` can't be referenced from `get_toolset(...)`.
 Schema/conventions/pitfalls:
 [`.agents/skills/create-agent/references/tool-design-reference.md`](.agents/skills/create-agent/references/tool-design-reference.md).

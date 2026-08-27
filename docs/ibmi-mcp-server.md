@@ -99,7 +99,15 @@ uv run python .agents/skills/create-agent/scripts/validate_tools.py tools/
 uv run python parse_mcp_tools.py
 ```
 
-The compose file mounts `./tools` into the MCP server with `YAML_AUTO_RELOAD=true`, so the MCP server picks up YAML changes within a few seconds. The toolsets.json is read by the Python agents only — they need it regenerated to know the new toolset name exists.
+The compose file mounts `./tools` into the MCP server with `YAML_AUTO_RELOAD=true`, so the MCP server picks up **edits to existing YAMLs** within a few seconds. A **new `tools/*.yaml` file** needs the container recreated — the server caches the file set at startup, the watcher misses new files, and the cache survives a plain restart — then an `agentos-api` restart, because `MCPTools` fetches the tool list once at agent startup:
+
+```bash
+podman compose up -d --force-recreate ibmi-mcp-server
+until curl -sSf http://localhost:3010/healthz > /dev/null; do sleep 0.5; done
+podman compose restart agentos-api
+```
+
+The toolsets.json is read by the Python agents only — they need it regenerated to know the new toolset name exists.
 
 ## Bumping `MCP_SERVER_VERSION`
 
@@ -140,6 +148,6 @@ The MCP server is single-tenant: it connects with one shared IBM i identity (`DB
 ## Troubleshooting
 
 - **Healthcheck fails**: check `podman compose logs ibmi-mcp-server`. Often it's bad `DB2i_*` creds — the server starts but fails to open the SQL connection on the first request.
-- **Tool not showing up**: regenerate `toolsets.json`, restart the MCP server, check the YAML validated cleanly.
+- **Tool not showing up**: regenerate `toolsets.json` and check the YAML validated cleanly. If it's a *new* YAML file, `podman compose up -d --force-recreate ibmi-mcp-server` — a plain restart keeps the startup cache (the log line `Registering N cached YAML tools (cache hit)` with the old count is the tell) — then restart `agentos-api`.
 - **"Read-only validator rejected statement"**: the SQL has a write or a function the validator considers unsafe. Mark the tool `readOnly: false` and add a `destructiveHint`, then plumb it through `requires_confirmation_tools` in the agent.
 - **Slow queries**: `MCP_POOL_QUERY_TIMEOUT_MS` in `compose.yaml` controls the per-query timeout (default 120s).

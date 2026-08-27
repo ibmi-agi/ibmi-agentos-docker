@@ -86,7 +86,7 @@ For each missing toolset, run [`write-new-tool.md`](../.agents/skills/create-age
 3. **Preview the tool plan** with a markdown table; wait for explicit user confirmation.
 4. **Author the YAML** against [`tool-design-reference.md`](../.agents/skills/create-agent/references/tool-design-reference.md) (§2–§6).
 5. **Validate & regenerate** with `uv run python .agents/skills/create-agent/scripts/validate_tools.py tools/<file>.yaml` (live-schema validation: download → validate → discard) and `uv run python parse_mcp_tools.py` — fix using §9/§10 of the reference doc on failure.
-6. **Verify** the MCP server picked it up: `curl -s http://localhost:3010/mcp/tools | jq '.tools[].name' | grep <new>`.
+6. **Load & verify** — a *new* YAML file needs the MCP server recreated (`podman compose up -d --force-recreate ibmi-mcp-server`; its startup cache misses new files and survives a plain restart — edits to existing files auto-reload), then confirm: `curl -s http://localhost:3010/mcp/tools | jq '.tools[].name' | grep <new>`.
 
 Repeat for each missing toolset. Then return here for Phase 2.
 
@@ -219,7 +219,7 @@ Before editing `app/main.py`, show the user the full registration plan in one ta
 | Instruction blocks | shared | GUARDRAILS, DATA_HANDLING, ERROR_HANDLING, AUDIT, WEB, USER_CONTEXT |
 | Files created | new | agents/security_audit_agent.py |
 | Files edited | edits | app/main.py (import + agents list), app/config.yaml (quick prompts) |
-| Restart needed | podman | podman compose restart agentos-api |
+| Restart needed | podman | podman compose restart agentos-api (after up -d --force-recreate ibmi-mcp-server, if a new tools YAML was added) |
 ```
 
 Ask: **"Confirm registration plan or request changes?"** Wait for explicit OK.

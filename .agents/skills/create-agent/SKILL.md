@@ -59,7 +59,7 @@ uv run python .agents/skills/create-agent/scripts/validate_tools.py tools/<file>
 uv run python parse_mcp_tools.py
 ```
 
-The first command downloads the authoritative schema fresh from the [ibmi-mcp-server repo](https://github.com/IBM/ibmi-mcp-server), validates the YAML in memory, and discards it — the schema is never stored in this repo. A non-zero exit means the YAML is broken; its output plus [`references/tool-design-reference.md`](references/tool-design-reference.md) §9–§10 map most errors to a fix (exit 2 means the download itself failed — check the network before blaming the YAML). The second command regenerates `toolsets.json`. The MCP server picks up YAML changes automatically (`YAML_AUTO_RELOAD=true`); the Python side reads `toolsets.json` for name resolution — both must be current.
+The first command downloads the authoritative schema fresh from the [ibmi-mcp-server repo](https://github.com/IBM/ibmi-mcp-server), validates the YAML in memory, and discards it — the schema is never stored in this repo. A non-zero exit means the YAML is broken; its output plus [`references/tool-design-reference.md`](references/tool-design-reference.md) §9–§10 map most errors to a fix (exit 2 means the download itself failed — check the network before blaming the YAML). The second command regenerates `toolsets.json`; the Python side reads it for name resolution. On the MCP side, **edits to an existing YAML** are picked up automatically (`YAML_AUTO_RELOAD=true`) — but a **new `tools/*.yaml` file is not**: the server caches the file set at startup and the watcher only sees files that existed then, so a new file (the normal case here — one toolset per file) needs the container recreated. Step 6 handles it.
 
 ## 3. Phase 2 — generate the agent file
 
@@ -131,13 +131,22 @@ from agents.<slug_underscore>_agent import <slug_underscore>_agent
 
 Add the agent to [`app/config.yaml`](../../../app/config.yaml) under its `id`, following the existing entries: quick prompts that exercise the agent's real capabilities.
 
-## 6. Restart the container
+## 6. Restart the containers
 
-Uvicorn hot-reloads edits inside existing modules, but **registering a new agent module requires a restart**:
+**If Phase 1 added a new `tools/*.yaml` file, recreate the MCP server first** — a plain restart is not enough (its YAML tool cache survives a restart; only a fresh container re-scans the tools directory), and the API must restart *after* it, because `MCPTools` fetches the tool list once at agent startup:
+
+```bash
+podman compose up -d --force-recreate ibmi-mcp-server
+until curl -sSf http://localhost:3010/healthz > /dev/null; do sleep 0.5; done
+```
+
+Then the API. Uvicorn hot-reloads edits inside existing modules, but **registering a new agent module requires a restart**:
 
 ```bash
 podman compose restart agentos-api
 ```
+
+(Edits to an *existing* tool YAML need neither — `YAML_AUTO_RELOAD=true` covers that case.)
 
 New pip deps instead? Add them to [`pyproject.toml`](../../../pyproject.toml), then `./scripts/generate_requirements.sh && podman compose up -d --build`.
 
@@ -173,7 +182,7 @@ podman logs agentos-api --since 30s 2>&1 | grep -E "Running: \w+\(" | head -40
 
 - **HTTP 404** — not registered or not restarted. Re-check Steps 4 and 6. If both look right, `podman inspect agentos-api --format '{{ range .Mounts }}{{ .Source }} → {{ .Destination }}{{ "\n" }}{{ end }}'` to confirm `/app` is bound to *this* repo's path.
 - **HTTP 5xx** — `podman logs agentos-api --tail 50` for the traceback. Most failures are import errors, an unknown toolset name, or a typo in `tools=`.
-- **MCP tool errors** — check `podman logs ibmi-mcp-server --tail 50`: bad IBM i credentials, SQL errors against the live system, or a YAML that didn't reload.
+- **MCP tool errors** — check `podman logs ibmi-mcp-server --tail 50`: bad IBM i credentials, SQL errors against the live system, or a YAML that didn't load. A log line like `Registering N cached YAML tools (cache hit)` showing the *old* tool count means a new YAML file was never loaded — do the Step 6 recreate.
 - **Tool not firing when expected** — the instruction prompt isn't strong enough. Tighten, or run [`improve-agent`](../improve-agent/SKILL.md) once the agent is loaded.
 
 Iterate at most 2-3 times before stopping and asking the user.
