@@ -38,7 +38,7 @@ If your `.env` already has the values the MCP server uses, the CLI picks them up
 | `DB2i_PASS`   | Password for that profile                |
 | `DB2i_PORT`   | Mapepire port — defaults to `8076`        |
 
-Sanity check from the host (with `.env` loaded into the shell, or after `set -a; source .env; set +a`):
+Sanity check from the host — run it from the repo root; the CLI loads `./.env` on its own, no exporting needed:
 
 ```bash
 ibmi sql "SELECT CURRENT_DATE FROM SYSIBM.SYSDUMMY1"

@@ -53,12 +53,12 @@ Wait for them to confirm, then re-run the checks (`podman info`, `podman compose
 
 ## 3. Environment
 
-Run `cp .env.example .env`, then help the user fill in two groups:
+`.env` is the user's file — it holds their IBM i credentials and API keys, so they fill it in and its contents stay with them. Run `cp .env.example .env`, open it in their editor, and walk them through the two groups to fill in:
 
 - **A model provider key** — agents default to `anthropic:claude-sonnet-4-5`, so `ANTHROPIC_API_KEY` is the one to set. If the user prefers another provider, set `AGENT_MODEL=<provider>:<model-id>` and the matching key instead (see the comments in [`.env.example`](../../../.env.example)).
 - **IBM i credentials** — `DB2i_HOST`, `DB2i_USER`, `DB2i_PASS`. The `ibmi-mcp-server` container uses these to open Db2 for i connections; without them the agents have no system to talk to.
 
-If a key is already set in their shell, say you found one and offer to copy it in — move the value across without reading or printing it. Otherwise open `.env` in their editor (cursor, code, etc.) and ask them to paste values in. Never open a terminal editor like vim or nano from your own shell — it will hang the session.
+If a key is already set in their shell, say so — they can paste it in themselves. Open `.env` in their editor (cursor, code, etc.); never open a terminal editor like vim or nano from your own shell — it will hang the session. Bad values surface on their own: Step 4's `ibmi sql` check and Step 5's MCP-server healthcheck both fail on wrong IBM i credentials — point the user back to `.env` rather than inspecting it.
 
 ## 4. IBM i CLI — project-scoped
 
@@ -72,8 +72,9 @@ The `ibmi` CLI is the host-side authoring tool the agent-development loop leans 
   cat > .ibmi/config.yaml <<'EOF'
   # Project-scoped ibmi CLI connections — the nearest .ibmi/config.yaml wins
   # over ~/.ibmi/config.yaml, so systems added in this repo stay sandboxed
-  # to it. ${VAR} references expand from the environment at load time; load
-  # .env into the shell first:  set -a; source .env; set +a
+  # to it. ${VAR} references expand from the environment at load time; the
+  # CLI loads ./.env itself (run it from the repo root), so the credentials
+  # live only in .env.
   default: dev
   systems:
     dev:
@@ -83,14 +84,13 @@ The `ibmi` CLI is the host-side authoring tool the agent-development loop leans 
   EOF
   ```
 
-- **Verify** against their system:
+- **Verify** against their system — from the repo root; the CLI loads `.env` itself (`./.env`, or `../.env` one level down), so nothing needs exporting:
 
   ```bash
-  set -a; source .env; set +a
   ibmi sql "SELECT CURRENT_DATE FROM SYSIBM.SYSDUMMY1"
   ```
 
-  Today's date as a one-row table = the CLI and the platform now share one set of credentials. If it fails, the same `DB2i_*` values will also fail the MCP server in Step 5's boot — fix them here, once.
+  Today's date as a one-row table = the CLI and the platform now share one set of credentials. If it fails, the same `DB2i_*` values will also fail the MCP server in Step 5's boot — have the user fix them in `.env`, once.
 
 Tell the user the sandbox rule in one line: any further system they add from inside this repo (`ibmi system add prod --host … --user …`) lands in the project's `.ibmi/config.yaml`, scoped to this project only.
 
